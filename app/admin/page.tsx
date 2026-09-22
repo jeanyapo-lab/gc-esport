@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { getPlayerStatsSummaries, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
 
 type Player = {
   id: string;
@@ -49,7 +50,16 @@ export default function AdminPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [statsMap, setStatsMap] = useState<Record<string, StatsSummary>>({});
+  const [cardStatsMap, setCardStatsMap] = useState<Record<string, CardStats>>({});
   const [tab, setTab] = useState<"joueurs" | "entreprises">("joueurs");
+
+  const [indicateurs, setIndicateurs] = useState({
+    selectionsEnAttente: 0,
+    affectationsConfirmees: 0,
+    equipesConstituees: 0,
+    competitionsEnCours: 0,
+  });
 
   useEffect(() => {
     async function init() {
@@ -97,11 +107,47 @@ export default function AdminPage() {
       .order("created_at", { ascending: false });
     setPlayers(playersData ?? []);
 
+    const stats = await getPlayerStatsSummaries((playersData ?? []).map((p) => p.id));
+    setStatsMap(stats);
+
+    const cardStatsEntries = await Promise.all(
+      (playersData ?? []).map(async (p) => [p.id, await getPlayerCardStats(p.id)] as const)
+    );
+    setCardStatsMap(Object.fromEntries(cardStatsEntries));
+
     const { data: companiesData } = await supabase
       .from("companies")
       .select("id, nom, secteur_activite, statut, created_at")
       .order("created_at", { ascending: false });
     setCompanies(companiesData ?? []);
+
+    const [
+      { count: selectionsEnAttente },
+      { count: affectationsConfirmees },
+      { count: equipesConstituees },
+      { count: competitionsEnCours },
+    ] = await Promise.all([
+      supabase
+        .from("draft_picks")
+        .select("*", { count: "exact", head: true })
+        .eq("statut", "en_attente_reponse_joueur"),
+      supabase
+        .from("draft_picks")
+        .select("*", { count: "exact", head: true })
+        .eq("statut", "affectation_confirmee"),
+      supabase.from("teams").select("*", { count: "exact", head: true }),
+      supabase
+        .from("competitions")
+        .select("*", { count: "exact", head: true })
+        .in("statut", ["inscriptions_ouvertes", "en_cours"]),
+    ]);
+
+    setIndicateurs({
+      selectionsEnAttente: selectionsEnAttente ?? 0,
+      affectationsConfirmees: affectationsConfirmees ?? 0,
+      equipesConstituees: equipesConstituees ?? 0,
+      competitionsEnCours: competitionsEnCours ?? 0,
+    });
   }
 
   async function updatePlayerStatut(player: Player, nouveauStatut: string) {
@@ -146,6 +192,24 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/admin/combine"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Combine
+          </Link>
+          <Link
+            href="/admin/engagements"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Engagements
+          </Link>
+          <Link
+            href="/admin/championnat"
+            className="rounded-full border border-lime px-6 py-3 font-body text-sm font-semibold text-lime hover:bg-lime hover:text-ink"
+          >
+            Championnat →
+          </Link>
+          <Link
             href="/admin/draft"
             className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"
           >
@@ -161,6 +225,25 @@ export default function AdminPage() {
             Se déconnecter
           </button>
         </div>
+      </div>
+
+      {/* Indicateurs */}
+      <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Joueurs inscrits" value={players.length} />
+        <StatCard
+          label="Profils vérifiés"
+          value={players.filter((p) => p.statut === "profil_verifie" || p.statut === "eligible_draft").length}
+        />
+        <StatCard label="Éligibles au Draft" value={players.filter((p) => p.statut === "eligible_draft").length} />
+        <StatCard label="Entreprises inscrites" value={companies.length} />
+        <StatCard
+          label="Entreprises confirmées"
+          value={companies.filter((c) => c.statut === "participante_confirmee").length}
+        />
+        <StatCard label="Sélections en attente" value={indicateurs.selectionsEnAttente} />
+        <StatCard label="Affectations confirmées" value={indicateurs.affectationsConfirmees} />
+        <StatCard label="Équipes constituées" value={indicateurs.equipesConstituees} />
+        <StatCard label="Compétitions en cours" value={indicateurs.competitionsEnCours} />
       </div>
 
       <div className="mt-10 flex gap-4 border-b border-line">
@@ -198,6 +281,19 @@ export default function AdminPage() {
                 <p className="mt-1 font-body text-xs text-lime">
                   {playerStatutLabel[p.statut] ?? p.statut}
                 </p>
+                {statsMap[p.id]?.matchsJoues > 0 && (
+                  <p className="mt-1 font-body text-xs text-white/40">
+                    {statsMap[p.id].matchsJoues} matchs · {statsMap[p.id].victoires}V {statsMap[p.id].nuls}N{" "}
+                    {statsMap[p.id].defaites}D
+                  </p>
+                )}
+                {cardStatsMap[p.id] && (
+                  <p className="mt-1 font-body text-[11px] text-white/30">
+                    ATT {cardStatsMap[p.id].attaque} · DEF {cardStatsMap[p.id].defense} · TEC{" "}
+                    {cardStatsMap[p.id].technique} · VIS {cardStatsMap[p.id].vision} · REG{" "}
+                    {cardStatsMap[p.id].regularite} · EQ {cardStatsMap[p.id].espritEquipe}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 {p.statut !== "profil_verifie" && (
@@ -263,6 +359,15 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-line bg-panel p-5">
+      <p className="font-display text-3xl text-orange">{value}</p>
+      <p className="mt-1 font-body text-xs text-white/50">{label}</p>
     </div>
   );
 }

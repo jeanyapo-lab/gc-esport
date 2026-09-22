@@ -96,7 +96,13 @@ export default function EspaceEntreprisePage() {
           Une fois votre participation validée par GC ESPORT, vous aurez accès
           au scouting des joueurs et à la participation au Draft.
         </p>
-        <div className="flex shrink-0 gap-3">
+        <div className="flex flex-wrap shrink-0 gap-3">
+          <Link
+            href="/espace-entreprise/engagements"
+            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
+          >
+            Nos engagements
+          </Link>
           <Link
             href="/espace-entreprise/draft"
             className="rounded-full border border-lime px-6 py-3 text-center font-body text-sm font-semibold text-lime transition hover:bg-lime hover:text-ink"

@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 const links = [
   { href: "/competitions", label: "Compétitions" },
+  { href: "/classements", label: "Classements" },
   { href: "/joueurs", label: "Joueurs" },
   { href: "/entreprises", label: "Entreprises" },
   { href: "/draft", label: "GC ESPORT DRAFT" },

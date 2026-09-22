@@ -18,6 +18,7 @@ export default function Footer() {
               <p className="mb-3 text-white/80">Plateforme</p>
               <ul className="space-y-2">
                 <li><Link href="/competitions" className="hover:text-white">Compétitions</Link></li>
+                <li><Link href="/classements" className="hover:text-white">Classements</Link></li>
                 <li><Link href="/draft" className="hover:text-white">Le Draft</Link></li>
                 <li><Link href="/joueurs" className="hover:text-white">Joueurs</Link></li>
                 <li><Link href="/entreprises" className="hover:text-white">Entreprises</Link></li>

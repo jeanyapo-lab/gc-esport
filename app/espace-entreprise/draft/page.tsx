@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type OrderRow = { company_id: string; position: number; effectif_recherche: number };
@@ -144,6 +145,9 @@ export default function EntrepriseDraftPage() {
         <p className="mt-4 font-body text-white/60">
           Reviens ici quand une édition du Draft à laquelle vous participez sera lancée.
         </p>
+        <Link href="/espace-entreprise" className="mt-8 inline-block font-body text-sm text-orange hover:underline">
+          ← Retour à mon espace
+        </Link>
       </div>
     );
   }
@@ -168,7 +172,10 @@ export default function EntrepriseDraftPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-24">
-      <h1 className="font-display text-4xl">{draftNom}</h1>
+      <Link href="/espace-entreprise" className="font-body text-sm text-white/50 hover:text-white">
+        ← Retour à mon espace
+      </Link>
+      <h1 className="mt-4 font-display text-4xl">{draftNom}</h1>
 
       {draftTermine ? (
         <p className="mt-6 font-body text-lime">Le Draft est terminé — tous les effectifs sont complets.</p>

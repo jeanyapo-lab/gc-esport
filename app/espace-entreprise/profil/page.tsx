@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function ProfilEntreprisePage() {
@@ -137,14 +138,20 @@ export default function ProfilEntreprisePage() {
   if (!companyId) {
     return (
       <div className="px-6 py-24 text-center font-body text-white/50">
-        Aucune entreprise associée à ce compte.
+        <p>Aucune entreprise associée à ce compte.</p>
+        <Link href="/espace-entreprise" className="mt-4 inline-block text-orange hover:underline">
+          ← Retour à mon espace
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-24">
-      <h1 className="font-display text-4xl">Profil de l'entreprise</h1>
+      <Link href="/espace-entreprise" className="font-body text-sm text-white/50 hover:text-white">
+        ← Retour à mon espace
+      </Link>
+      <h1 className="mt-4 font-display text-4xl">Profil de l'entreprise</h1>
       <p className="mt-3 font-body text-sm text-white/60">
         Ces informations seront visibles par GC ESPORT et, une fois votre
         participation confirmée, par le public.
@@ -245,7 +252,14 @@ export default function ProfilEntreprisePage() {
         </section>
 
         {error && <p className="font-body text-sm text-red-400">{error}</p>}
-        {success && <p className="font-body text-sm text-lime">Profil mis à jour avec succès.</p>}
+        {success && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-lime/40 bg-lime/10 px-4 py-3">
+            <p className="font-body text-sm text-lime">Profil mis à jour avec succès.</p>
+            <Link href="/espace-entreprise" className="font-body text-sm font-semibold text-lime hover:underline">
+              Retour à mon espace →
+            </Link>
+          </div>
+        )}
 
         <button
           type="submit"

@@ -37,7 +37,18 @@ export default function ConnexionPage() {
 
     setLoading(false);
 
-    if (profile?.role === "entreprise") {
+    const adminRoles = [
+      "super_admin",
+      "admin",
+      "responsable_joueurs",
+      "responsable_partenariats",
+      "responsable_competitions",
+      "responsable_communication",
+    ];
+
+    if (profile?.role && adminRoles.includes(profile.role)) {
+      router.push("/admin");
+    } else if (profile?.role === "entreprise") {
       router.push("/espace-entreprise");
     } else if (profile?.role === "joueur") {
       router.push("/espace-joueur");

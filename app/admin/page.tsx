@@ -144,12 +144,23 @@ export default function AdminPage() {
             Validation des profils joueurs et des entreprises.
           </p>
         </div>
-        <Link
-          href="/admin/draft"
-          className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"
-        >
-          Gérer le Draft →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin/draft"
+            className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"
+          >
+            Gérer le Draft →
+          </Link>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/");
+            }}
+            className="font-body text-sm text-white/50 hover:text-white"
+          >
+            Se déconnecter
+          </button>
+        </div>
       </div>
 
       <div className="mt-10 flex gap-4 border-b border-line">

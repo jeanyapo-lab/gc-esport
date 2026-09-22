@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type Game = { id: string; nom: string };
@@ -173,7 +174,10 @@ export default function ProfilJoueurPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-24">
-      <h1 className="font-display text-4xl">Compléter mon profil</h1>
+      <Link href="/espace-joueur" className="font-body text-sm text-white/50 hover:text-white">
+        ← Retour à mon espace
+      </Link>
+      <h1 className="mt-4 font-display text-4xl">Compléter mon profil</h1>
       <p className="mt-3 font-body text-sm text-white/60">
         Plus ton profil est complet, plus tu as de chances d'être repéré.
       </p>
@@ -298,7 +302,12 @@ export default function ProfilJoueurPage() {
 
         {error && <p className="font-body text-sm text-red-400">{error}</p>}
         {success && (
-          <p className="font-body text-sm text-lime">Profil mis à jour avec succès.</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-lime/40 bg-lime/10 px-4 py-3">
+            <p className="font-body text-sm text-lime">Profil mis à jour avec succès.</p>
+            <Link href="/espace-joueur" className="font-body text-sm font-semibold text-lime hover:underline">
+              Retour à mon espace →
+            </Link>
+          </div>
         )}
 
         <button

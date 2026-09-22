@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type Pick = { id: string; company_id: string; statut: string };
@@ -75,7 +76,10 @@ export default function JoueurDraftPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-24">
-      <h1 className="font-display text-4xl">Mon Draft</h1>
+      <Link href="/espace-joueur" className="font-body text-sm text-white/50 hover:text-white">
+        ← Retour à mon espace
+      </Link>
+      <h1 className="mt-4 font-display text-4xl">Mon Draft</h1>
 
       <section className="mt-10">
         <p className="font-display text-lg text-lime">Sélections en attente de ta réponse</p>

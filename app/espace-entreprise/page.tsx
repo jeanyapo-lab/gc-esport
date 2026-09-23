@@ -95,50 +95,32 @@ export default function EspaceEntreprisePage() {
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-line bg-panel p-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-body text-white/60">
+      <div className="mt-8 rounded-2xl border border-line bg-panel p-6">
+        <p className="font-body text-sm text-white/60">
           Votre entreprise est en statut « {company ? statutLabel[company.statut] ?? company.statut : "…"} ».
           Une fois votre participation validée par GC ESPORT, vous aurez accès
           au scouting des joueurs et à la participation au Draft.
         </p>
-        <div className="flex flex-wrap shrink-0 gap-3">
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {[
+          { href: "/espace-entreprise/profil", label: "Compléter le profil", desc: "Présentation, contact, logo" },
+          { href: "/espace-entreprise/draft", label: "Le Draft", desc: "Sélectionner des joueurs" },
+          { href: "/espace-entreprise/recrutement", label: "Recrutement", desc: "Recruter ou transférer un joueur" },
+          { href: "/espace-entreprise/shortlist", label: "Shortlist", desc: "Vos joueurs suivis en privé" },
+          { href: "/espace-entreprise/engagements", label: "Nos engagements", desc: "Documents à signer" },
+          { href: "/espace-entreprise/representants", label: "Représentants", desc: "Gérer les accès au compte" },
+        ].map((s) => (
           <Link
-            href="/espace-entreprise/shortlist"
-            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
+            key={s.href}
+            href={s.href}
+            className="rounded-2xl border border-line bg-panel p-5 transition hover:border-orange"
           >
-            Shortlist
+            <p className="font-display text-lg">{s.label}</p>
+            <p className="mt-1 font-body text-xs text-white/50">{s.desc}</p>
           </Link>
-          <Link
-            href="/espace-entreprise/representants"
-            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
-          >
-            Représentants
-          </Link>
-          <Link
-            href="/espace-entreprise/recrutement"
-            className="rounded-full bg-lime px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-orange"
-          >
-            Recrutement
-          </Link>
-          <Link
-            href="/espace-entreprise/engagements"
-            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
-          >
-            Nos engagements
-          </Link>
-          <Link
-            href="/espace-entreprise/draft"
-            className="rounded-full border border-lime px-6 py-3 text-center font-body text-sm font-semibold text-lime transition hover:bg-lime hover:text-ink"
-          >
-            Le Draft
-          </Link>
-          <Link
-            href="/espace-entreprise/profil"
-            className="rounded-full bg-orange px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-lime"
-          >
-            Compléter le profil
-          </Link>
-        </div>
+        ))}
       </div>
     </div>
   );

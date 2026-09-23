@@ -122,38 +122,30 @@ export default function EspaceJoueurPage() {
         </div>
       )}
 
-      <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-line bg-panel p-8 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-body text-white/60">
+      <div className="mt-8 rounded-2xl border border-line bg-panel p-6">
+        <p className="font-body text-sm text-white/60">
           {profile?.statut === "inscription_incomplete"
             ? "Ton profil n'est pas encore complet — complète-le pour passer en vérification."
             : "Ton profil est en attente de vérification par GC ESPORT. Une fois vérifié, tu pourras participer aux sessions d'évaluation (Combine) puis devenir éligible au Draft."}
         </p>
-        <div className="flex flex-wrap shrink-0 gap-3">
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {[
+          { href: "/espace-joueur/profil", label: "Compléter mon profil", desc: "Jeu, niveau, disponibilités" },
+          { href: "/espace-joueur/draft", label: "Mon Draft", desc: "Sélections reçues" },
+          { href: "/espace-joueur/offres", label: "Propositions", desc: "Recrutement et transferts" },
+          { href: "/espace-joueur/engagements", label: "Mes engagements", desc: "Documents à signer" },
+        ].map((s) => (
           <Link
-            href="/espace-joueur/offres"
-            className="rounded-full bg-lime px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-orange"
+            key={s.href}
+            href={s.href}
+            className="rounded-2xl border border-line bg-panel p-5 transition hover:border-orange"
           >
-            Propositions
+            <p className="font-display text-lg">{s.label}</p>
+            <p className="mt-1 font-body text-xs text-white/50">{s.desc}</p>
           </Link>
-          <Link
-            href="/espace-joueur/engagements"
-            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
-          >
-            Mes engagements
-          </Link>
-          <Link
-            href="/espace-joueur/draft"
-            className="rounded-full border border-lime px-6 py-3 text-center font-body text-sm font-semibold text-lime transition hover:bg-lime hover:text-ink"
-          >
-            Mon Draft
-          </Link>
-          <Link
-            href="/espace-joueur/profil"
-            className="rounded-full bg-orange px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-lime"
-          >
-            Compléter mon profil
-          </Link>
-        </div>
+        ))}
       </div>
     </div>
   );

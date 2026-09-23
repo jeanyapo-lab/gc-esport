@@ -203,7 +203,7 @@ export default function AdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-24">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-4xl">Administration</h1>
           <p className="mt-3 font-body text-sm text-white/60">
@@ -211,66 +211,6 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Link
-            href="/admin/utilisateurs"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Utilisateurs
-          </Link>
-          <Link
-            href="/admin/sondages"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Sondages
-          </Link>
-          <Link
-            href="/admin/actualites"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Actualités
-          </Link>
-          <Link
-            href="/admin/partenaires"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Partenaires
-          </Link>
-          <Link
-            href="/admin/competitions"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Compétitions
-          </Link>
-          <Link
-            href="/admin/recrutement"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Recrutement
-          </Link>
-          <Link
-            href="/admin/combine"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Combine
-          </Link>
-          <Link
-            href="/admin/engagements"
-            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
-          >
-            Engagements
-          </Link>
-          <Link
-            href="/admin/championnat"
-            className="rounded-full border border-lime px-6 py-3 font-body text-sm font-semibold text-lime hover:bg-lime hover:text-ink"
-          >
-            Championnat →
-          </Link>
-          <Link
-            href="/admin/draft"
-            className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"
-          >
-            Gérer le Draft →
-          </Link>
           <Link href="/parametres" className="font-body text-sm text-white/50 hover:text-white">
             Paramètres
           </Link>
@@ -284,6 +224,31 @@ export default function AdminPage() {
             Se déconnecter
           </button>
         </div>
+      </div>
+
+      {/* Sections de gestion */}
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { href: "/admin/draft", label: "Draft", desc: "Éditions, ordre de sélection, validations" },
+          { href: "/admin/championnat", label: "Championnat", desc: "Matchs, scores, classement" },
+          { href: "/admin/combine", label: "Combine", desc: "Sessions d'évaluation des joueurs" },
+          { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts" },
+          { href: "/admin/engagements", label: "Engagements", desc: "Documents et consentements" },
+          { href: "/admin/competitions", label: "Compétitions", desc: "Jeux, compétitions, éditions" },
+          { href: "/admin/partenaires", label: "Partenaires", desc: "Sponsors de GC ESPORT" },
+          { href: "/admin/actualites", label: "Actualités", desc: "Articles publiés sur le site" },
+          { href: "/admin/sondages", label: "Sondages", desc: "Fan Zone" },
+          { href: "/admin/utilisateurs", label: "Utilisateurs", desc: "Rôles et permissions admin" },
+        ].map((s) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="rounded-2xl border border-line bg-panel p-5 transition hover:border-orange"
+          >
+            <p className="font-display text-lg">{s.label}</p>
+            <p className="mt-1 font-body text-xs text-white/50">{s.desc}</p>
+          </Link>
+        ))}
       </div>
 
       {/* Indicateurs */}

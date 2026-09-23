@@ -6,19 +6,24 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import NotificationBell from "./NotificationBell";
 
-const links = [
+const mainLinks = [
   { href: "/competitions", label: "Compétitions" },
-  { href: "/classements", label: "Classements" },
-  { href: "/equipes", label: "Équipes" },
+  { href: "/draft", label: "Draft" },
   { href: "/joueurs", label: "Joueurs" },
   { href: "/entreprises", label: "Entreprises" },
-  { href: "/draft", label: "GC ESPORT DRAFT" },
+];
+
+const moreLinks = [
+  { href: "/classements", label: "Classements" },
+  { href: "/equipes", label: "Équipes" },
   { href: "/actualites", label: "Actualités" },
   { href: "/fan-zone", label: "Fan Zone" },
   { href: "/partenaires", label: "Partenaires" },
   { href: "/a-propos", label: "À propos" },
   { href: "/contact", label: "Contact" },
 ];
+
+const links = [...mainLinks, ...moreLinks];
 
 const adminRoles = [
   "super_admin",
@@ -35,6 +40,7 @@ export default function Header() {
   const [spaceHref, setSpaceHref] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     async function checkSession() {
@@ -88,12 +94,34 @@ export default function Header() {
           GC <span className="text-orange">ESPORT</span>
         </Link>
 
-        <nav className="hidden gap-8 font-body text-sm text-white/70 md:flex">
-          {links.map((l) => (
+        <nav className="hidden items-center gap-7 font-body text-sm text-white/70 md:flex">
+          {mainLinks.map((l) => (
             <Link key={l.href} href={l.href} className="transition hover:text-white">
               {l.label}
             </Link>
           ))}
+          <div className="relative">
+            <button
+              onClick={() => setMoreOpen(!moreOpen)}
+              onBlur={() => setTimeout(() => setMoreOpen(false), 150)}
+              className="flex items-center gap-1 transition hover:text-white"
+            >
+              Plus <span className="text-xs">{moreOpen ? "▲" : "▼"}</span>
+            </button>
+            {moreOpen && (
+              <div className="absolute left-0 top-8 z-50 w-48 rounded-xl border border-line bg-panel p-2 shadow-xl">
+                {moreLinks.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="block rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-ink hover:text-white"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerCardStats, getOverallScore } from "@/lib/playerStats";
+import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
 
 const ROSTER_MAX = 5;
 
@@ -57,6 +58,7 @@ export default function RecrutementEntreprisePage() {
   const [mesOffres, setMesOffres] = useState<Offer[]>([]);
   const [playersMap, setPlayersMap] = useState<Record<string, string>>({});
 
+  const [shortlistIds, setShortlistIds] = useState<Set<string>>(new Set());
   const [formPlayerId, setFormPlayerId] = useState<string | null>(null);
   const [formType, setFormType] = useState<"recrutement_libre" | "transfert">("recrutement_libre");
   const [formAncienneCompanyId, setFormAncienneCompanyId] = useState<string | null>(null);
@@ -101,7 +103,21 @@ export default function RecrutementEntreprisePage() {
     (compsData ?? []).forEach((c) => (cMap[c.id] = c.nom));
     setCompetitionsMap(cMap);
 
+    const { data: shortlistData } = await supabase.from("shortlist_entries").select("player_id").eq("company_id", rep.company_id);
+    setShortlistIds(new Set((shortlistData ?? []).map((s) => s.player_id)));
+
     setLoading(false);
+  }
+
+  async function handleToggleShortlist(playerId: string) {
+    if (!myCompanyId) return;
+    if (shortlistIds.has(playerId)) {
+      await supabase.from("shortlist_entries").delete().eq("company_id", myCompanyId).eq("player_id", playerId);
+    } else {
+      await supabase.from("shortlist_entries").insert({ company_id: myCompanyId, player_id: playerId });
+    }
+    const { data } = await supabase.from("shortlist_entries").select("player_id").eq("company_id", myCompanyId);
+    setShortlistIds(new Set((data ?? []).map((s) => s.player_id)));
   }
 
   async function loadEditionData() {
@@ -209,16 +225,38 @@ export default function RecrutementEntreprisePage() {
     });
     setSubmitting(false);
     setFormPlayerId(null);
+
+    const uid = await getUserIdFromPlayerId(formPlayerId);
+    await notify(
+      uid,
+      formType === "transfert" ? "Proposition de transfert" : "Proposition de recrutement",
+      "Une entreprise t'a fait une proposition. Réponds depuis ton espace joueur."
+    );
+
     await loadEditionData();
   }
 
   async function handleApproveDepart(offerId: string) {
+    const offer = offresRecues.find((o) => o.id === offerId);
     await supabase.from("recruitment_offers").update({ statut: "en_attente_validation_gcesport" }).eq("id", offerId);
+    if (offer) {
+      const userIds = await getUserIdsFromCompanyId(offer.company_id);
+      for (const uid of userIds) {
+        await notify(uid, "Départ approuvé", "L'ancienne entreprise a approuvé le transfert — en attente de validation GC ESPORT.");
+      }
+    }
     await loadEditionData();
   }
 
   async function handleRefuseDepart(offerId: string) {
+    const offer = offresRecues.find((o) => o.id === offerId);
     await supabase.from("recruitment_offers").update({ statut: "refusee_ancienne_entreprise" }).eq("id", offerId);
+    if (offer) {
+      const userIds = await getUserIdsFromCompanyId(offer.company_id);
+      for (const uid of userIds) {
+        await notify(uid, "Transfert refusé", "L'ancienne entreprise a refusé de libérer ce joueur.");
+      }
+    }
     await loadEditionData();
   }
 
@@ -319,6 +357,8 @@ export default function RecrutementEntreprisePage() {
               actionLabel="Recruter"
               disabled={complet}
               onAction={() => openForm(p.id, "recrutement_libre")}
+              inShortlist={shortlistIds.has(p.id)}
+              onToggleShortlist={() => handleToggleShortlist(p.id)}
             />
           ))}
           {joueursLibres.length === 0 && <p className="font-body text-sm text-white/40">Aucun joueur libre pour le moment.</p>}
@@ -338,6 +378,8 @@ export default function RecrutementEntreprisePage() {
               actionLabel="Négocier transfert"
               disabled={complet}
               onAction={() => openForm(p.id, "transfert", p.currentCompanyId)}
+              inShortlist={shortlistIds.has(p.id)}
+              onToggleShortlist={() => handleToggleShortlist(p.id)}
             />
           ))}
           {joueursRecrutes.length === 0 && <p className="font-body text-sm text-white/40">Aucun joueur recruté ailleurs pour le moment.</p>}
@@ -369,6 +411,8 @@ function PlayerScoutCard({
   actionLabel,
   disabled,
   onAction,
+  inShortlist,
+  onToggleShortlist,
 }: {
   player: PlayerRow;
   badge: string;
@@ -376,6 +420,8 @@ function PlayerScoutCard({
   actionLabel: string;
   disabled: boolean;
   onAction: () => void;
+  inShortlist: boolean;
+  onToggleShortlist: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-line bg-panel p-5">
@@ -394,7 +440,12 @@ function PlayerScoutCard({
             <p className="font-body text-xs text-white/50">{player.ville}</p>
           </div>
         </div>
-        <p className="font-display text-2xl text-lime">{player.overall}</p>
+        <div className="flex items-center gap-2">
+          <button onClick={onToggleShortlist} aria-label="Shortlist" className="text-lg">
+            {inShortlist ? "★" : "☆"}
+          </button>
+          <p className="font-display text-2xl text-lime">{player.overall}</p>
+        </div>
       </div>
       <span className={`mt-3 inline-block rounded-full border px-2 py-0.5 font-body text-[11px] ${badgeColor}`}>{badge}</span>
       <div className="mt-4 flex gap-2">

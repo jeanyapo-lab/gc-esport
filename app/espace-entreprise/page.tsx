@@ -69,12 +69,17 @@ export default function EspaceEntreprisePage() {
         <h1 className="font-display text-4xl">
           <span className="text-lime">{company?.nom}</span>
         </h1>
-        <button
-          onClick={handleLogout}
-          className="font-body text-sm text-white/50 hover:text-white"
-        >
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-4">
+          <Link href="/parametres" className="font-body text-sm text-white/50 hover:text-white">
+            Paramètres
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="font-body text-sm text-white/50 hover:text-white"
+          >
+            Se déconnecter
+          </button>
+        </div>
       </div>
 
       <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -97,6 +102,18 @@ export default function EspaceEntreprisePage() {
           au scouting des joueurs et à la participation au Draft.
         </p>
         <div className="flex flex-wrap shrink-0 gap-3">
+          <Link
+            href="/espace-entreprise/shortlist"
+            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
+          >
+            Shortlist
+          </Link>
+          <Link
+            href="/espace-entreprise/representants"
+            className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
+          >
+            Représentants
+          </Link>
           <Link
             href="/espace-entreprise/recrutement"
             className="rounded-full bg-lime px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-orange"

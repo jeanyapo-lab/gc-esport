@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
 
 type Competition = { id: string; nom: string };
 type DraftEdition = {
@@ -214,7 +215,11 @@ export default function AdminDraftPage() {
 
   async function handleRemoveFromOrder(orderRowId: string) {
     if (!confirm("Retirer cette entreprise de l'ordre de sélection ?")) return;
-    await supabase.from("draft_order").delete().eq("id", orderRowId);
+    const { error } = await supabase.from("draft_order").delete().eq("id", orderRowId);
+    if (error) {
+      alert("Erreur : " + error.message);
+      return;
+    }
     if (selectedDraftId) await loadDraftDetail(selectedDraftId);
   }
 
@@ -277,6 +282,13 @@ export default function AdminDraftPage() {
     });
 
     await supabase.from("draft_picks").update({ statut: "affectation_confirmee" }).eq("id", pick.id);
+
+    const playerUserId = await getUserIdFromPlayerId(pick.player_id);
+    await notify(playerUserId, "Affectation confirmée", "Ton affectation au Draft a été validée par GC ESPORT.");
+    const companyUserIds = await getUserIdsFromCompanyId(pick.company_id);
+    for (const uid of companyUserIds) {
+      await notify(uid, "Affectation confirmée", "Votre sélection au Draft a été validée par GC ESPORT.");
+    }
 
     await loadDraftDetail(selectedDraftId);
   }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
 
 const ROSTER_MAX = 5;
 
@@ -174,11 +175,25 @@ export default function AdminRecrutementPage() {
     await supabase.from("team_assignments").insert({ team_id: teamId, player_id: offer.player_id, titulaire: true });
     await supabase.from("recruitment_offers").update({ statut: "validee" }).eq("id", offer.id);
 
+    const playerUserId = await getUserIdFromPlayerId(offer.player_id);
+    await notify(playerUserId, "Recrutement validé", "GC ESPORT a validé ton recrutement/transfert.");
+    const companyUserIds = await getUserIdsFromCompanyId(offer.company_id);
+    for (const uid of companyUserIds) {
+      await notify(uid, "Recrutement validé", "GC ESPORT a validé votre recrutement/transfert.");
+    }
+
     await loadAll();
   }
 
   async function handleRefuser(offerId: string) {
+    const offer = offers.find((o) => o.id === offerId);
     await supabase.from("recruitment_offers").update({ statut: "annulee" }).eq("id", offerId);
+    if (offer) {
+      const companyUserIds = await getUserIdsFromCompanyId(offer.company_id);
+      for (const uid of companyUserIds) {
+        await notify(uid, "Recrutement refusé", "GC ESPORT n'a pas validé cette proposition.");
+      }
+    }
     await loadAll();
   }
 

@@ -4,13 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import NotificationBell from "./NotificationBell";
 
 const links = [
   { href: "/competitions", label: "Compétitions" },
   { href: "/classements", label: "Classements" },
+  { href: "/equipes", label: "Équipes" },
   { href: "/joueurs", label: "Joueurs" },
   { href: "/entreprises", label: "Entreprises" },
   { href: "/draft", label: "GC ESPORT DRAFT" },
+  { href: "/actualites", label: "Actualités" },
+  { href: "/fan-zone", label: "Fan Zone" },
+  { href: "/partenaires", label: "Partenaires" },
   { href: "/a-propos", label: "À propos" },
   { href: "/contact", label: "Contact" },
 ];
@@ -28,6 +33,7 @@ export default function Header() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [spaceHref, setSpaceHref] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -35,9 +41,11 @@ export default function Header() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
         setSpaceHref(null);
+        setUserId(null);
         setChecking(false);
         return;
       }
+      setUserId(data.session.user.id);
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -89,6 +97,7 @@ export default function Header() {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
+          {!checking && spaceHref && userId && <NotificationBell userId={userId} />}
           {!checking && spaceHref && (
             <button onClick={handleLogout} className="font-body text-sm text-white/50 hover:text-white">
               Se déconnecter
@@ -123,6 +132,7 @@ export default function Header() {
             ))}
           </nav>
           <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
+            {!checking && spaceHref && userId && <NotificationBell userId={userId} />}
             {!checking && spaceHref && (
               <button onClick={handleLogout} className="text-left font-body text-sm text-white/50 hover:text-white">
                 Se déconnecter

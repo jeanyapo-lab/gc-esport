@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdFromPlayerId } from "@/lib/notify";
 
 type OrderRow = { company_id: string; position: number; effectif_recherche: number };
 type Pick = { id: string; company_id: string; player_id: string; statut: string };
@@ -133,6 +134,14 @@ export default function EntrepriseDraftPage() {
       statut: "en_attente_reponse_joueur",
     });
     setPicking(false);
+
+    const uid = await getUserIdFromPlayerId(playerId);
+    await notify(
+      uid,
+      "Tu as été sélectionné au Draft !",
+      "Une entreprise vient de te sélectionner. Réponds depuis ton espace joueur."
+    );
+
     await load();
   }
 

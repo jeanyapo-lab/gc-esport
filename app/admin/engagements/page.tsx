@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
 
 type Engagement = {
   id: string;
@@ -116,15 +117,41 @@ export default function AdminEngagementsPage() {
       date_emission: new Date().toISOString(),
     });
 
+    const label = typeLabels[type] ?? type;
+    if (cible === "joueur") {
+      const uid = await getUserIdFromPlayerId(cibleId);
+      await notify(uid, "Nouvel engagement à signer", `« ${label} » — dépose ton document depuis ton espace.`);
+    } else {
+      const userIds = await getUserIdsFromCompanyId(cibleId);
+      for (const uid of userIds) {
+        await notify(uid, "Nouvel engagement à signer", `« ${label} » — déposez votre document depuis votre espace.`);
+      }
+    }
+
     setCibleId("");
     await loadAll();
   }
 
   async function handleUpdateStatut(id: string, statut: string) {
+    const engagement = engagements.find((e) => e.id === id);
     await supabase
       .from("engagements")
       .update({ statut, date_validation: statut === "valide" ? new Date().toISOString() : null })
       .eq("id", id);
+
+    if (engagement) {
+      const label = typeLabels[engagement.type_engagement] ?? engagement.type_engagement;
+      const titre = statut === "valide" ? "Engagement validé" : "Engagement refusé";
+      const message = `« ${label} » — ${statut === "valide" ? "validé" : "refusé"} par GC ESPORT.`;
+      if (engagement.player_id) {
+        const uid = await getUserIdFromPlayerId(engagement.player_id);
+        await notify(uid, titre, message);
+      } else if (engagement.company_id) {
+        const userIds = await getUserIdsFromCompanyId(engagement.company_id);
+        for (const uid of userIds) await notify(uid, titre, message);
+      }
+    }
+
     await loadAll();
   }
 

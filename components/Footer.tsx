@@ -33,7 +33,13 @@ export default function Footer() {
             </div>
           </div>
         </div>
-        <p className="mt-10 text-xs text-white/30">© {new Date().getFullYear()} GC ESPORT — Abidjan, Côte d'Ivoire.</p>
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
+          <p className="text-xs text-white/30">© {new Date().getFullYear()} GC ESPORT — Abidjan, Côte d'Ivoire.</p>
+          <div className="flex gap-4 text-xs text-white/30">
+            <Link href="/cgu" className="hover:text-white/60">Conditions d'utilisation</Link>
+            <Link href="/confidentialite" className="hover:text-white/60">Confidentialité</Link>
+          </div>
+        </div>
       </div>
     </footer>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
 
 type Offer = {
   id: string;
@@ -74,6 +75,16 @@ export default function OffresJoueurPage() {
       : "en_attente_validation_gcesport";
 
     await supabase.from("recruitment_offers").update({ statut: nouveauStatut }).eq("id", offer.id);
+
+    const userIds = await getUserIdsFromCompanyId(offer.company_id);
+    for (const uid of userIds) {
+      await notify(
+        uid,
+        accepte ? "Proposition acceptée" : "Proposition refusée",
+        accepte ? "Le joueur a accepté votre proposition." : "Le joueur a refusé votre proposition."
+      );
+    }
+
     setActing(null);
     await load();
   }

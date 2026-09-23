@@ -76,12 +76,17 @@ export default function EspaceJoueurPage() {
         <h1 className="font-display text-4xl">
           Salut, <span className="text-lime">{profile?.pseudo}</span>
         </h1>
-        <button
-          onClick={handleLogout}
-          className="font-body text-sm text-white/50 hover:text-white"
-        >
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-4">
+          <Link href="/parametres" className="font-body text-sm text-white/50 hover:text-white">
+            Paramètres
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="font-body text-sm text-white/50 hover:text-white"
+          >
+            Se déconnecter
+          </button>
+        </div>
       </div>
 
       <div className="mt-12 grid gap-6 sm:grid-cols-2">

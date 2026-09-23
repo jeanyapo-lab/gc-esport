@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
 
 type Pick = { id: string; company_id: string; statut: string };
 
@@ -64,10 +65,23 @@ export default function JoueurDraftPage() {
 
   async function handleRespond(pickId: string, accepte: boolean) {
     setActing(pickId);
+    const pick = pending.find((p) => p.id === pickId);
     await supabase
       .from("draft_picks")
       .update({ statut: accepte ? "en_attente_validation_gcesport" : "refusee" })
       .eq("id", pickId);
+
+    if (pick) {
+      const userIds = await getUserIdsFromCompanyId(pick.company_id);
+      for (const uid of userIds) {
+        await notify(
+          uid,
+          accepte ? "Sélection acceptée" : "Sélection refusée",
+          accepte ? "Le joueur a accepté votre sélection au Draft." : "Le joueur a refusé votre sélection au Draft."
+        );
+      }
+    }
+
     setActing(null);
     await load();
   }

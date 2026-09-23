@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummaries, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
+import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
+import { downloadCSV } from "@/lib/csv";
 
 type Player = {
   id: string;
@@ -12,6 +14,7 @@ type Player = {
   ville: string | null;
   statut: string;
   created_at: string;
+  user_id: string;
 };
 
 type Company = {
@@ -103,7 +106,7 @@ export default function AdminPage() {
   async function loadData() {
     const { data: playersData } = await supabase
       .from("player_profiles")
-      .select("id, pseudo, ville, statut, created_at")
+      .select("id, pseudo, ville, statut, created_at, user_id")
       .order("created_at", { ascending: false });
     setPlayers(playersData ?? []);
 
@@ -158,11 +161,28 @@ export default function AdminPage() {
       nouveau_statut: nouveauStatut,
       change_par: userId,
     });
+    await notify(
+      player.user_id,
+      nouveauStatut === "profil_verifie" ? "Profil vérifié" : "Mise à jour de ton profil",
+      nouveauStatut === "profil_verifie"
+        ? "Ton profil a été vérifié par GC ESPORT."
+        : `Le statut de ton profil est maintenant : ${playerStatutLabel[nouveauStatut] ?? nouveauStatut}.`
+    );
     await loadData();
   }
 
   async function updateCompanyStatut(company: Company, nouveauStatut: string) {
     await supabase.from("companies").update({ statut: nouveauStatut }).eq("id", company.id);
+    const userIds = await getUserIdsFromCompanyId(company.id);
+    for (const uid of userIds) {
+      await notify(
+        uid,
+        nouveauStatut === "participante_confirmee" ? "Participation confirmée" : "Mise à jour de votre statut",
+        nouveauStatut === "participante_confirmee"
+          ? "Votre entreprise est confirmée comme participante GC ESPORT."
+          : `Le statut de votre entreprise est maintenant : ${nouveauStatut}.`
+      );
+    }
     await loadData();
   }
 
@@ -192,6 +212,36 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/admin/utilisateurs"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Utilisateurs
+          </Link>
+          <Link
+            href="/admin/sondages"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Sondages
+          </Link>
+          <Link
+            href="/admin/actualites"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Actualités
+          </Link>
+          <Link
+            href="/admin/partenaires"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Partenaires
+          </Link>
+          <Link
+            href="/admin/competitions"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Compétitions
+          </Link>
+          <Link
             href="/admin/recrutement"
             className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
           >
@@ -220,6 +270,9 @@ export default function AdminPage() {
             className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"
           >
             Gérer le Draft →
+          </Link>
+          <Link href="/parametres" className="font-body text-sm text-white/50 hover:text-white">
+            Paramètres
           </Link>
           <button
             onClick={async () => {
@@ -252,22 +305,40 @@ export default function AdminPage() {
         <StatCard label="Compétitions en cours" value={indicateurs.competitionsEnCours} />
       </div>
 
-      <div className="mt-10 flex gap-4 border-b border-line">
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-b border-line">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setTab("joueurs")}
+            className={`px-4 py-3 font-body text-sm font-semibold ${
+              tab === "joueurs" ? "border-b-2 border-orange text-white" : "text-white/50"
+            }`}
+          >
+            Joueurs ({players.length})
+          </button>
+          <button
+            onClick={() => setTab("entreprises")}
+            className={`px-4 py-3 font-body text-sm font-semibold ${
+              tab === "entreprises" ? "border-b-2 border-orange text-white" : "text-white/50"
+            }`}
+          >
+            Entreprises ({companies.length})
+          </button>
+        </div>
         <button
-          onClick={() => setTab("joueurs")}
-          className={`px-4 py-3 font-body text-sm font-semibold ${
-            tab === "joueurs" ? "border-b-2 border-orange text-white" : "text-white/50"
-          }`}
+          onClick={() =>
+            tab === "joueurs"
+              ? downloadCSV(
+                  "joueurs-gc-esport.csv",
+                  players.map((p) => ({ pseudo: p.pseudo, ville: p.ville, statut: p.statut }))
+                )
+              : downloadCSV(
+                  "entreprises-gc-esport.csv",
+                  companies.map((c) => ({ nom: c.nom, secteur: c.secteur_activite, statut: c.statut }))
+                )
+          }
+          className="mb-2 rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/60 hover:border-white/50"
         >
-          Joueurs ({players.length})
-        </button>
-        <button
-          onClick={() => setTab("entreprises")}
-          className={`px-4 py-3 font-body text-sm font-semibold ${
-            tab === "entreprises" ? "border-b-2 border-orange text-white" : "text-white/50"
-          }`}
-        >
-          Entreprises ({companies.length})
+          Exporter en CSV
         </button>
       </div>
 

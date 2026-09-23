@@ -15,8 +15,11 @@ export default function AProposPage() {
       </p>
       <p className="mt-6 font-body text-lg leading-relaxed text-white/70">
         Notre discipline de lancement est EA SPORTS FC, avec une orientation
-        vers les compétitions de football virtuel — la première étape d'une
-        ambition qui s'élargira à d'autres jeux dans le temps.
+        vers les compétitions de football virtuel — la première étape d'un
+        programme qui compte s'élargir à plusieurs championnats et
+        disciplines dans les mois à venir. GC ESPORT n'est pas un événement
+        ponctuel : c'est une structure durable, pensée pour accueillir de
+        nouvelles compétitions au fil du temps.
       </p>
     </div>
   );

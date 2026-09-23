@@ -14,6 +14,7 @@ const typeLabels: Record<string, string> = {
   engagement_entreprise: "Engagement de l'entreprise",
   accord_affectation: "Accord d'affectation joueur–entreprise",
   autorisation_image: "Autorisation de diffusion d'image",
+  consentement_parental: "Consentement parental (mineur)",
   autre: "Autre document",
 };
 

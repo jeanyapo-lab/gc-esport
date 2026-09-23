@@ -82,6 +82,12 @@ export async function getPlayerCardStats(playerId: string): Promise<CardStats> {
   return { attaque, defense, technique, vision, regularite, espritEquipe };
 }
 
+export function getOverallScore(stats: CardStats): number {
+  return Math.round(
+    (stats.attaque + stats.defense + stats.technique + stats.vision + stats.regularite + stats.espritEquipe) / 6
+  );
+}
+
 export async function getPlayerStatsSummaries(playerIds: string[]): Promise<Record<string, StatsSummary>> {
   const map: Record<string, StatsSummary> = {};
   playerIds.forEach((id) => (map[id] = { ...empty }));

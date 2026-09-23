@@ -98,6 +98,12 @@ export default function EspaceEntreprisePage() {
         </p>
         <div className="flex flex-wrap shrink-0 gap-3">
           <Link
+            href="/espace-entreprise/recrutement"
+            className="rounded-full bg-lime px-6 py-3 text-center font-body text-sm font-semibold text-ink transition hover:bg-orange"
+          >
+            Recrutement
+          </Link>
+          <Link
             href="/espace-entreprise/engagements"
             className="rounded-full border border-white/20 px-6 py-3 text-center font-body text-sm font-semibold text-white transition hover:border-white/50"
           >

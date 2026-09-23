@@ -12,10 +12,10 @@ export default function Home() {
           Le talent gaming ivoirien mérite une vraie scène.
         </h1>
         <p className="mt-8 max-w-xl font-body text-lg text-white/70">
-          GC ESPORT détecte, évalue et sélectionne les meilleurs joueurs
-          d'EA SPORTS FC de Côte d'Ivoire, pour les faire jouer sous les
-          couleurs d'entreprises engagées — à travers un système structuré :
-          le GC ESPORT DRAFT.
+          GC ESPORT est l'association qui structure l'e-sport et le gaming en
+          Côte d'Ivoire : détection de talents, championnats inter-entreprises
+          et compétitions gaming, tout au long de l'année, à travers plusieurs
+          disciplines.
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
           <Link
@@ -25,18 +25,46 @@ export default function Home() {
             Inscris-toi comme joueur
           </Link>
           <Link
-            href="/draft"
+            href="/competitions"
             className="rounded-full border border-white/20 px-7 py-3 font-body font-semibold text-white transition hover:border-white/50"
           >
-            Découvrir le Draft
+            Voir les compétitions
           </Link>
         </div>
       </section>
 
-      {/* Le parcours */}
+      {/* Le programme */}
       <section className="border-t border-line bg-panel">
         <div className="mx-auto max-w-6xl px-6 py-20">
-          <h2 className="font-display text-3xl md:text-4xl">Comment ça marche</h2>
+          <h2 className="font-display text-3xl md:text-4xl">Un programme, plusieurs compétitions</h2>
+          <p className="mt-4 max-w-2xl font-body text-white/60">
+            GC ESPORT ne se limite pas à un seul tournoi : plusieurs
+            championnats et disciplines sont prévus au fil de l'année.
+            EA SPORTS FC ouvre le bal avec le GC ESPORT DRAFT, notre système
+            de détection et d'affectation des joueurs aux entreprises
+            participantes.
+          </p>
+          <div className="mt-10 flex flex-wrap gap-4">
+            <Link
+              href="/draft"
+              className="rounded-full border border-lime px-6 py-3 font-body text-sm font-semibold text-lime transition hover:bg-lime hover:text-ink"
+            >
+              Découvrir le GC ESPORT DRAFT
+            </Link>
+            <Link
+              href="/competitions"
+              className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white transition hover:border-white/50"
+            >
+              Toutes les compétitions
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Le parcours du joueur */}
+      <section className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <h2 className="font-display text-3xl md:text-4xl">Le parcours d'un joueur</h2>
           <div className="mt-12 grid gap-8 md:grid-cols-4">
             {[
               { n: "1", t: "Inscription", d: "Le joueur crée son profil gaming et rejoint une édition." },

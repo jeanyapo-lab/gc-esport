@@ -192,6 +192,12 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/admin/recrutement"
+            className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
+          >
+            Recrutement
+          </Link>
+          <Link
             href="/admin/combine"
             className="rounded-full border border-white/20 px-6 py-3 font-body text-sm font-semibold text-white hover:border-white/50"
           >

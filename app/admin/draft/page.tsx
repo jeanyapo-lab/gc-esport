@@ -28,6 +28,7 @@ type Player = { id: string; pseudo: string; statut: string };
 const draftStatutLabel: Record<string, string> = {
   preparation: "En préparation",
   en_cours: "En cours",
+  suspendue: "Suspendue",
   terminee: "Terminée",
   annulee: "Annulée",
 };
@@ -200,6 +201,29 @@ export default function AdminDraftPage() {
     await loadDraftDetail(draftId);
   }
 
+  async function handleChangeDraftStatut(draftId: string, statut: string) {
+    await supabase.from("draft_editions").update({ statut }).eq("id", draftId);
+    await loadAll();
+    if (selectedDraftId === draftId) await loadDraftDetail(draftId);
+  }
+
+  async function handleUpdateEffectif(orderRowId: string, effectif: number) {
+    await supabase.from("draft_order").update({ effectif_recherche: effectif }).eq("id", orderRowId);
+    if (selectedDraftId) await loadDraftDetail(selectedDraftId);
+  }
+
+  async function handleRemoveFromOrder(orderRowId: string) {
+    if (!confirm("Retirer cette entreprise de l'ordre de sélection ?")) return;
+    await supabase.from("draft_order").delete().eq("id", orderRowId);
+    if (selectedDraftId) await loadDraftDetail(selectedDraftId);
+  }
+
+  async function handleAnnulerPick(pickId: string) {
+    if (!confirm("Annuler cette sélection ? Le joueur redeviendra disponible.")) return;
+    await supabase.from("draft_picks").update({ statut: "annulee" }).eq("id", pickId);
+    if (selectedDraftId) await loadDraftDetail(selectedDraftId);
+  }
+
   async function handlePromoteEligible(playerId: string) {
     await supabase.from("player_profiles").update({ statut: "eligible_draft" }).eq("id", playerId);
     await loadAll();
@@ -218,6 +242,17 @@ export default function AdminDraftPage() {
       .maybeSingle();
 
     let teamId = team?.id;
+
+    if (teamId) {
+      const { count } = await supabase
+        .from("team_assignments")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId);
+      if ((count ?? 0) >= 5) {
+        alert("Effectif complet (5 joueurs max) pour cette entreprise sur cette édition.");
+        return;
+      }
+    }
 
     if (!teamId) {
       const company = companies.find((c) => c.id === pick.company_id);
@@ -345,7 +380,7 @@ export default function AdminDraftPage() {
                     {d.date_draft ? " · " + d.date_draft : ""}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => loadDraftDetail(d.id)}
                     className="rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50"
@@ -360,6 +395,17 @@ export default function AdminDraftPage() {
                       Démarrer
                     </button>
                   )}
+                  <select
+                    value={d.statut}
+                    onChange={(e) => handleChangeDraftStatut(d.id, e.target.value)}
+                    className="input w-auto py-2 text-xs"
+                  >
+                    {Object.entries(draftStatutLabel).map(([k, label]) => (
+                      <option key={k} value={k}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -370,9 +416,28 @@ export default function AdminDraftPage() {
                     <p className="font-body text-sm font-semibold text-white/80">Ordre de sélection</p>
                     <div className="mt-3 space-y-2">
                       {orderRows.map((o) => (
-                        <div key={o.id} className="flex items-center justify-between rounded-lg border border-line px-4 py-2 font-body text-sm">
+                        <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-4 py-2 font-body text-sm">
                           <span>#{o.position} — {companyNom(o.company_id)}</span>
-                          <span className="text-white/50">{o.effectif_recherche} joueur(s) recherché(s)</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={2}
+                              max={5}
+                              defaultValue={o.effectif_recherche}
+                              onBlur={(e) => {
+                                const v = Number(e.target.value);
+                                if (v !== o.effectif_recherche) handleUpdateEffectif(o.id, v);
+                              }}
+                              className="input w-16 py-1 text-center text-xs"
+                            />
+                            <span className="text-xs text-white/40">recherchés</span>
+                            <button
+                              onClick={() => handleRemoveFromOrder(o.id)}
+                              className="rounded-full border border-white/20 px-2 py-1 text-xs text-white/50 hover:border-orange hover:text-orange"
+                            >
+                              Retirer
+                            </button>
+                          </div>
                         </div>
                       ))}
                       {orderRows.length === 0 && <p className="font-body text-sm text-white/40">Aucune entreprise ajoutée.</p>}
@@ -417,6 +482,14 @@ export default function AdminDraftPage() {
                                 className="rounded-full bg-orange px-3 py-1 text-xs font-semibold text-ink"
                               >
                                 Valider l'affectation
+                              </button>
+                            )}
+                            {p.statut !== "annulee" && (
+                              <button
+                                onClick={() => handleAnnulerPick(p.id)}
+                                className="rounded-full border border-white/20 px-3 py-1 text-xs text-white/50 hover:border-orange hover:text-orange"
+                              >
+                                Annuler
                               </button>
                             )}
                           </div>

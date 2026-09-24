@@ -134,7 +134,9 @@ export default function EspaceJoueurPage() {
         {[
           { href: "/espace-joueur/profil", label: "Compléter mon profil", desc: "Jeu, niveau, disponibilités" },
           { href: "/espace-joueur/draft", label: "Mon Draft", desc: "Sélections reçues" },
+          { href: "/espace-joueur/messages", label: "Messages", desc: "Échanger avec les entreprises" },
           { href: "/espace-joueur/offres", label: "Propositions", desc: "Recrutement et transferts" },
+          { href: "/espace-joueur/candidature", label: "Candidature spontanée", desc: "Propose-toi à une entreprise" },
           { href: "/espace-joueur/engagements", label: "Mes engagements", desc: "Documents à signer" },
         ].map((s) => (
           <Link

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { computeClassement } from "@/lib/classement";
+import { computeClassementParGroupe } from "@/lib/classement";
 
 export const revalidate = 60;
 
@@ -15,7 +15,7 @@ export default async function ClassementsPage() {
 
   const sections = await Promise.all(
     (editions ?? []).map(async (ed) => {
-      const { data: teams } = await supabase.from("teams").select("id, nom").eq("edition_id", ed.id);
+      const { data: teams } = await supabase.from("teams").select("id, nom, groupe").eq("edition_id", ed.id);
       const teamIds = (teams ?? []).map((t) => t.id);
 
       let assignments: { team_id: string; player_id: string }[] = [];
@@ -39,7 +39,7 @@ export default async function ClassementsPage() {
         (playersData ?? []).forEach((p) => (playersMap[p.id] = p.pseudo));
       }
 
-      const classement = computeClassement(teams ?? [], assignments, matches ?? []);
+      const classementParGroupe = computeClassementParGroupe(teams ?? [], assignments, matches ?? []);
 
       const { data: bracketMatches } = await supabase
         .from("bracket_matches")
@@ -54,7 +54,7 @@ export default async function ClassementsPage() {
       return {
         edition: ed,
         competitionNom: competitionsMap[ed.competition_id] ?? "Compétition",
-        classement,
+        classementParGroupe,
         matches: matches ?? [],
         playersMap,
         bracketMatches: bracketMatches ?? [],
@@ -63,7 +63,9 @@ export default async function ClassementsPage() {
     })
   );
 
-  const sectionsAvecEquipes = sections.filter((s) => s.classement.length > 0 || s.bracketMatches.length > 0);
+  const sectionsAvecEquipes = sections.filter(
+    (s) => Object.values(s.classementParGroupe).some((rows) => rows.length > 0) || s.bracketMatches.length > 0
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-24">
@@ -84,64 +86,83 @@ export default async function ClassementsPage() {
                 {s.competitionNom} — <span className="text-lime">{s.edition.nom}</span>
               </h2>
 
-              {s.bracketMatches.length > 0 && (
-                <div className="mt-6 flex gap-6 overflow-x-auto pb-4">
-                  {Array.from(new Set(s.bracketMatches.map((m) => m.tour)))
-                    .sort((a, b) => a - b)
-                    .map((tour, i, allTours) => (
-                      <div key={tour} className="flex min-w-[220px] flex-col justify-around gap-4">
-                        <p className="text-center font-body text-xs uppercase tracking-wide text-white/40">
-                          {i === allTours.length - 1 ? "Finale" : `Tour ${tour}`}
-                        </p>
-                        {s.bracketMatches
-                          .filter((m) => m.tour === tour)
-                          .map((m) => (
-                            <div key={m.id} className="space-y-1 rounded-2xl border border-line bg-panel p-3">
-                              <div className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${m.vainqueur_team_id === m.team_a_id ? "bg-lime/10 text-lime" : "text-white/70"}`}>
-                                <span>{m.team_a_id ? s.teamsMap[m.team_a_id] ?? "Équipe" : "À déterminer"}</span>
-                                {m.valide && <span>{m.score_a}</span>}
-                              </div>
-                              <div className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${m.vainqueur_team_id === m.team_b_id ? "bg-lime/10 text-lime" : "text-white/70"}`}>
-                                <span>{m.team_b_id ? s.teamsMap[m.team_b_id] ?? "Équipe" : "À déterminer"}</span>
-                                {m.valide && <span>{m.score_b}</span>}
-                              </div>
-                            </div>
-                          ))}
+              {Object.values(s.classementParGroupe).some((rows) => rows.length > 0) && (
+                <div className="mt-6">
+                  {s.bracketMatches.length > 0 && (
+                    <p className="mb-3 font-body text-xs uppercase tracking-wide text-white/40">Phase de groupes</p>
+                  )}
+                  <div className="space-y-8">
+                    {Object.entries(s.classementParGroupe).map(([groupe, rows]) => (
+                      <div key={groupe}>
+                        {groupe !== "Groupe unique" && (
+                          <p className="mb-2 font-body text-sm font-semibold text-lime">{groupe}</p>
+                        )}
+                        <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
+                          <table className="w-full font-body text-sm">
+                            <thead>
+                              <tr className="border-b border-line text-left text-xs uppercase text-white/40">
+                                <th className="px-4 py-3">Équipe</th>
+                                <th className="px-3 py-3 text-center">J</th>
+                                <th className="px-3 py-3 text-center">V</th>
+                                <th className="px-3 py-3 text-center">N</th>
+                                <th className="px-3 py-3 text-center">D</th>
+                                <th className="px-3 py-3 text-center">BM</th>
+                                <th className="px-3 py-3 text-center">BE</th>
+                                <th className="px-3 py-3 text-center">Pts</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row) => (
+                                <tr key={row.teamId} className="border-b border-line last:border-0">
+                                  <td className="px-4 py-3">{row.nom}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.matchsJoues}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.victoires}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.nuls}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.defaites}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.butsMarques}</td>
+                                  <td className="px-3 py-3 text-center text-white/60">{row.butsEncaisses}</td>
+                                  <td className="px-3 py-3 text-center font-semibold text-lime">{row.points}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     ))}
+                  </div>
                 </div>
               )}
 
-              {s.classement.length > 0 && (
-                <div className="mt-6 overflow-x-auto rounded-2xl border border-line bg-panel">
-                  <table className="w-full font-body text-sm">
-                    <thead>
-                      <tr className="border-b border-line text-left text-xs uppercase text-white/40">
-                        <th className="px-4 py-3">Équipe</th>
-                        <th className="px-3 py-3 text-center">J</th>
-                        <th className="px-3 py-3 text-center">V</th>
-                        <th className="px-3 py-3 text-center">N</th>
-                        <th className="px-3 py-3 text-center">D</th>
-                        <th className="px-3 py-3 text-center">BM</th>
-                        <th className="px-3 py-3 text-center">BE</th>
-                        <th className="px-3 py-3 text-center">Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {s.classement.map((row) => (
-                        <tr key={row.teamId} className="border-b border-line last:border-0">
-                          <td className="px-4 py-3">{row.nom}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.matchsJoues}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.victoires}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.nuls}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.defaites}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.butsMarques}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.butsEncaisses}</td>
-                          <td className="px-3 py-3 text-center font-semibold text-lime">{row.points}</td>
-                        </tr>
+              {s.bracketMatches.length > 0 && (
+                <div className="mt-10">
+                  <p className="mb-3 font-body text-xs uppercase tracking-wide text-white/40">
+                    Phase à élimination directe
+                  </p>
+                  <div className="flex gap-6 overflow-x-auto pb-4">
+                    {Array.from(new Set(s.bracketMatches.map((m) => m.tour)))
+                      .sort((a, b) => a - b)
+                      .map((tour, i, allTours) => (
+                        <div key={tour} className="flex min-w-[220px] flex-col justify-around gap-4">
+                          <p className="text-center font-body text-xs uppercase tracking-wide text-white/40">
+                            {i === allTours.length - 1 ? "Finale" : `Tour ${tour}`}
+                          </p>
+                          {s.bracketMatches
+                            .filter((m) => m.tour === tour)
+                            .map((m) => (
+                              <div key={m.id} className="space-y-1 rounded-2xl border border-line bg-panel p-3">
+                                <div className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${m.vainqueur_team_id === m.team_a_id ? "bg-lime/10 text-lime" : "text-white/70"}`}>
+                                  <span>{m.team_a_id ? s.teamsMap[m.team_a_id] ?? "Équipe" : "À déterminer"}</span>
+                                  {m.valide && <span>{m.score_a}</span>}
+                                </div>
+                                <div className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${m.vainqueur_team_id === m.team_b_id ? "bg-lime/10 text-lime" : "text-white/70"}`}>
+                                  <span>{m.team_b_id ? s.teamsMap[m.team_b_id] ?? "Équipe" : "À déterminer"}</span>
+                                  {m.valide && <span>{m.score_b}</span>}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                  </div>
                 </div>
               )}
 

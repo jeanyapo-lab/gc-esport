@@ -29,6 +29,12 @@ export default function ProfilJoueurPage() {
   const [disponibilites, setDisponibilites] = useState("");
   const [liensVideos, setLiensVideos] = useState("");
 
+  const [profilPublic, setProfilPublic] = useState(false);
+  const [twitter, setTwitter] = useState("");
+  const [twitch, setTwitch] = useState("");
+  const [youtube, setYoutube] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [discord, setDiscord] = useState("");
   const [plateformePrincipale, setPlateformePrincipale] = useState("console");
   const [selectedGames, setSelectedGames] = useState<Record<string, string>>({}); // game_id -> identifiant_gaming
 
@@ -57,7 +63,7 @@ export default function ProfilJoueurPage() {
       const { data: player } = await supabase
         .from("player_profiles")
         .select(
-          "id, statut, ville, date_naissance, niveau_declare, experience_competitive, palmares, disponibilites, liens_videos, photo_url, plateforme_principale"
+          "id, statut, ville, date_naissance, niveau_declare, experience_competitive, palmares, disponibilites, liens_videos, photo_url, plateforme_principale, profil_public, reseaux_sociaux"
         )
         .eq("user_id", uid)
         .single();
@@ -74,6 +80,13 @@ export default function ProfilJoueurPage() {
         setDisponibilites(player.disponibilites ?? "");
         setLiensVideos((player.liens_videos ?? []).join(", "));
         setPlateformePrincipale(player.plateforme_principale ?? "console");
+        setProfilPublic(player.profil_public ?? false);
+        const rs = player.reseaux_sociaux ?? {};
+        setTwitter(rs.twitter ?? "");
+        setTwitch(rs.twitch ?? "");
+        setYoutube(rs.youtube ?? "");
+        setInstagram(rs.instagram ?? "");
+        setDiscord(rs.discord ?? "");
 
         const { data: accounts } = await supabase
           .from("player_game_accounts")
@@ -139,6 +152,8 @@ export default function ProfilJoueurPage() {
         liens_videos: liensArray,
         photo_url: photoUrl || null,
         plateforme_principale: plateformePrincipale,
+        profil_public: profilPublic,
+        reseaux_sociaux: { twitter, twitch, youtube, instagram, discord },
         statut: nouveauStatut,
       })
       .eq("id", playerId);
@@ -197,6 +212,44 @@ export default function ProfilJoueurPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-8">
+        <section className="rounded-2xl border border-line bg-panel p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-display text-lg text-lime">Profil public</p>
+              <p className="mt-1 font-body text-xs text-white/50">
+                Si activé, ton profil (pseudo, stats, palmarès) devient visible sur la page publique{" "}
+                <Link href="/joueurs" className="text-orange hover:underline">
+                  Joueurs
+                </Link>
+                . Ton nom et prénom restent toujours privés.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProfilPublic(!profilPublic)}
+              className={`shrink-0 rounded-full px-5 py-2 font-body text-sm font-semibold ${
+                profilPublic ? "bg-lime text-ink" : "border border-white/20 text-white/60"
+              }`}
+            >
+              {profilPublic ? "Activé" : "Désactivé"}
+            </button>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-panel p-6">
+          <p className="font-display text-lg text-lime">Réseaux sociaux</p>
+          <p className="mt-1 font-body text-xs text-white/50">
+            Optionnel — les entreprises verront des icônes cliquables pour ceux que tu renseignes.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <input placeholder="Lien X / Twitter" value={twitter} onChange={(e) => setTwitter(e.target.value)} className="input" />
+            <input placeholder="Lien Twitch" value={twitch} onChange={(e) => setTwitch(e.target.value)} className="input" />
+            <input placeholder="Lien YouTube" value={youtube} onChange={(e) => setYoutube(e.target.value)} className="input" />
+            <input placeholder="Lien Instagram" value={instagram} onChange={(e) => setInstagram(e.target.value)} className="input" />
+            <input placeholder="Lien Discord" value={discord} onChange={(e) => setDiscord(e.target.value)} className="input" />
+          </div>
+        </section>
+
         <section>
           <p className="font-display text-lg text-lime">Photo de profil</p>
           <div className="mt-4 flex items-center gap-5">

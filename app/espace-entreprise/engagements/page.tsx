@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-type Engagement = { id: string; type_engagement: string; statut: string };
+type Engagement = { id: string; type_engagement: string; statut: string; template_url: string | null; motif_refus: string | null };
 type Doc = { id: string; engagement_id: string; fichier_url: string };
 
 const typeLabels: Record<string, string> = {
@@ -60,7 +60,7 @@ export default function EntrepriseEngagementsPage() {
 
     const { data: engagementsData } = await supabase
       .from("engagements")
-      .select("id, type_engagement, statut")
+      .select("id, type_engagement, statut, template_url, motif_refus")
       .eq("company_id", rep.company_id)
       .order("date_emission", { ascending: false });
     setEngagements(engagementsData ?? []);
@@ -92,6 +92,7 @@ export default function EntrepriseEngagementsPage() {
 
     if (!uploadError) {
       await supabase.from("documents").insert({ engagement_id: engagementId, fichier_url: path });
+      await supabase.from("engagements").update({ statut: "en_attente_signature", motif_refus: null }).eq("id", engagementId);
     }
 
     setUploadingId(null);
@@ -118,14 +119,31 @@ export default function EntrepriseEngagementsPage() {
               <p className="font-body font-semibold">{typeLabels[e.type_engagement] ?? e.type_engagement}</p>
               <p className="mt-1 font-body text-xs text-lime">{statutLabels[e.statut] ?? e.statut}</p>
 
-              {docs.length > 0 ? (
+              {e.template_url && (
+                <a
+                  href={e.template_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block font-body text-xs text-orange hover:underline"
+                >
+                  Télécharger le modèle à signer →
+                </a>
+              )}
+
+              {e.statut === "refuse" && e.motif_refus && (
+                <p className="mt-3 rounded-lg border border-orange/40 bg-orange/10 px-4 py-3 font-body text-xs text-orange">
+                  Motif du refus : {e.motif_refus}
+                </p>
+              )}
+
+              {docs.length > 0 && e.statut !== "refuse" ? (
                 <p className="mt-3 font-body text-xs text-white/50">
                   Document déposé — en attente de validation par GC ESPORT.
                 </p>
               ) : (
                 e.statut !== "valide" && (
                   <label className="mt-4 inline-block cursor-pointer rounded-full border border-white/20 px-5 py-2 font-body text-sm hover:border-white/50">
-                    {uploadingId === e.id ? "Envoi…" : "Déposer le document signé"}
+                    {uploadingId === e.id ? "Envoi…" : docs.length > 0 ? "Redéposer le document corrigé" : "Déposer le document signé"}
                     <input
                       type="file"
                       accept="image/*,.pdf"

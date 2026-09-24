@@ -19,11 +19,13 @@ type Match = {
 type Evaluation = {
   id: string;
   player_id: string;
-  technique: number | null;
-  tactique: number | null;
+  precision_passes: number | null;
+  tirs_cadres: number | null;
+  tirs_tentes: number | null;
+  dribbles_reussis_pct: number | null;
+  passes_cles: number | null;
   adaptation: number | null;
   gestion_pression: number | null;
-  esprit_sportif: number | null;
   observations: string | null;
 };
 
@@ -52,13 +54,15 @@ export default function AdminCombinePage() {
   const [joueur2Id, setJoueur2Id] = useState("");
   const [scoreEdits, setScoreEdits] = useState<Record<string, { s1: string; s2: string }>>({});
 
-  // Formulaire évaluation
+  // Formulaire évaluation — chiffres tels qu'affichés par le jeu
   const [evalPlayerId, setEvalPlayerId] = useState("");
-  const [technique, setTechnique] = useState(10);
-  const [tactique, setTactique] = useState(10);
+  const [precisionPasses, setPrecisionPasses] = useState("");
+  const [tirsCadres, setTirsCadres] = useState("");
+  const [tirsTentes, setTirsTentes] = useState("");
+  const [dribblesReussisPct, setDribblesReussisPct] = useState("");
+  const [passesCles, setPassesCles] = useState("");
   const [adaptation, setAdaptation] = useState(10);
   const [gestionPression, setGestionPression] = useState(10);
-  const [espritSportif, setEspritSportif] = useState(10);
   const [observations, setObservations] = useState("");
 
   useEffect(() => {
@@ -120,7 +124,9 @@ export default function AdminCombinePage() {
 
     const { data: evaluationsData } = await supabase
       .from("evaluations")
-      .select("id, player_id, technique, tactique, adaptation, gestion_pression, esprit_sportif, observations")
+      .select(
+        "id, player_id, precision_passes, tirs_cadres, tirs_tentes, dribbles_reussis_pct, passes_cles, adaptation, gestion_pression, observations"
+      )
       .eq("combine_session_id", sessionId)
       .order("created_at", { ascending: false });
     setEvaluations(evaluationsData ?? []);
@@ -151,7 +157,20 @@ export default function AdminCombinePage() {
 
   async function handleCreateMatch(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedSessionId || !joueur1Id || !joueur2Id || joueur1Id === joueur2Id) return;
+
+    if (!joueur1Id || !joueur2Id) {
+      alert("Choisis un joueur dans les deux menus déroulants.");
+      return;
+    }
+    if (joueur1Id === joueur2Id) {
+      alert(
+        "Il faut deux joueurs différents pour programmer un match. " +
+          (players.length < 2
+            ? "Il n'y a qu'un seul joueur inscrit pour le moment — il en faut au moins deux."
+            : "Choisis un joueur différent dans le deuxième menu.")
+      );
+      return;
+    }
 
     await supabase.from("matches").insert({
       combine_session_id: selectedSessionId,
@@ -210,22 +229,26 @@ export default function AdminCombinePage() {
     await supabase.from("evaluations").insert({
       player_id: evalPlayerId,
       combine_session_id: selectedSessionId,
-      technique,
-      tactique,
+      precision_passes: precisionPasses ? Number(precisionPasses) : null,
+      tirs_cadres: tirsCadres ? Number(tirsCadres) : null,
+      tirs_tentes: tirsTentes ? Number(tirsTentes) : null,
+      dribbles_reussis_pct: dribblesReussisPct ? Number(dribblesReussisPct) : null,
+      passes_cles: passesCles ? Number(passesCles) : null,
       adaptation,
       gestion_pression: gestionPression,
-      esprit_sportif: espritSportif,
       observations,
       evalue_par: userId,
     });
 
     setEvalPlayerId("");
     setObservations("");
-    setTechnique(10);
-    setTactique(10);
+    setPrecisionPasses("");
+    setTirsCadres("");
+    setTirsTentes("");
+    setDribblesReussisPct("");
+    setPassesCles("");
     setAdaptation(10);
     setGestionPression(10);
-    setEspritSportif(10);
     await loadSessionData(selectedSessionId);
   }
 
@@ -377,7 +400,11 @@ export default function AdminCombinePage() {
 
           {/* Évaluations */}
           <section className="mt-8 rounded-2xl border border-line bg-panel p-6">
-            <p className="font-display text-lg text-lime">Évaluation qualitative</p>
+            <p className="font-display text-lg text-lime">Évaluation du match</p>
+            <p className="mt-1 font-body text-xs text-white/50">
+              Recopie les chiffres affichés par le jeu en fin de match (Technique et Vision sur la carte joueur en
+              découlent automatiquement).
+            </p>
             <form onSubmit={handleCreateEvaluation} className="mt-4 space-y-4">
               <select value={evalPlayerId} onChange={(e) => setEvalPlayerId(e.target.value)} className="input" required>
                 <option value="">— Joueur à évaluer —</option>
@@ -387,12 +414,19 @@ export default function AdminCombinePage() {
                   </option>
                 ))}
               </select>
-              <div className="grid gap-4 sm:grid-cols-5">
-                <NoteField label="Technique" value={technique} onChange={setTechnique} />
-                <NoteField label="Tactique" value={tactique} onChange={setTactique} />
-                <NoteField label="Adaptation" value={adaptation} onChange={setAdaptation} />
-                <NoteField label="Gestion pression" value={gestionPression} onChange={setGestionPression} />
-                <NoteField label="Esprit sportif" value={espritSportif} onChange={setEspritSportif} />
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatField label="Précision des passes (%)" value={precisionPasses} onChange={setPrecisionPasses} max={100} />
+                <StatField label="Dribbles réussis (%)" value={dribblesReussisPct} onChange={setDribblesReussisPct} max={100} />
+                <StatField label="Passes clés" value={passesCles} onChange={setPassesCles} />
+                <StatField label="Tirs cadrés" value={tirsCadres} onChange={setTirsCadres} />
+                <StatField label="Tirs tentés" value={tirsTentes} onChange={setTirsTentes} />
+              </div>
+              <div>
+                <p className="font-body text-xs uppercase tracking-wide text-white/40">Jugement de l'admin (sur 20)</p>
+                <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                  <NoteField label="Adaptation" value={adaptation} onChange={setAdaptation} />
+                  <NoteField label="Gestion pression" value={gestionPression} onChange={setGestionPression} />
+                </div>
               </div>
               <textarea
                 placeholder="Observations..."
@@ -411,8 +445,9 @@ export default function AdminCombinePage() {
                 <div key={ev.id} className="rounded-lg border border-line px-4 py-3">
                   <p className="font-body text-sm font-semibold">{playerPseudo(ev.player_id)}</p>
                   <p className="mt-1 font-body text-xs text-white/50">
-                    Technique {ev.technique} · Tactique {ev.tactique} · Adaptation {ev.adaptation} · Pression{" "}
-                    {ev.gestion_pression} · Esprit sportif {ev.esprit_sportif}
+                    Passes {ev.precision_passes}% · Dribbles {ev.dribbles_reussis_pct}% · Tirs {ev.tirs_cadres}/
+                    {ev.tirs_tentes} · Passes clés {ev.passes_cles} · Adaptation {ev.adaptation} · Pression{" "}
+                    {ev.gestion_pression}
                   </p>
                   {ev.observations && <p className="mt-2 font-body text-xs text-white/70">{ev.observations}</p>}
                 </div>
@@ -424,6 +459,33 @@ export default function AdminCombinePage() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+function StatField({
+  label,
+  value,
+  onChange,
+  max,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  max?: number;
+}) {
+  return (
+    <div>
+      <label className="font-body text-xs text-white/60">{label}</label>
+      <input
+        type="number"
+        min={0}
+        max={max}
+        placeholder="0"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input mt-1"
+      />
     </div>
   );
 }

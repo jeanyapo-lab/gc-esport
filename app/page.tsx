@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
           <Link
-            href="/connexion"
+            href="/inscription/joueur"
             className="rounded-full bg-orange px-7 py-3 font-body font-semibold text-ink transition hover:bg-lime"
           >
             Inscris-toi comme joueur

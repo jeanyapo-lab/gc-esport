@@ -42,29 +42,43 @@ export type CardStats = {
   technique: number;
   vision: number;
   regularite: number;
-  espritEquipe: number;
 };
 
+// Technique et Vision sont calculées à partir de statistiques
+// réellement affichées par le jeu en fin de match (saisies par
+// l'admin dans le Combine) — plus une note "à l'instinct".
 export async function getPlayerCardStats(playerId: string): Promise<CardStats> {
   const stats = await getPlayerStatsSummary(playerId);
 
   const { data: evals } = await supabase
     .from("evaluations")
-    .select("technique, tactique, esprit_sportif")
+    .select("precision_passes, tirs_cadres, tirs_tentes, dribbles_reussis_pct, passes_cles")
     .eq("player_id", playerId);
 
-  function avgEval(field: "technique" | "tactique" | "esprit_sportif") {
-    const vals = (evals ?? [])
-      .map((e) => e[field] as number | null)
-      .filter((v): v is number => v !== null && v !== undefined);
-    if (vals.length === 0) return 0;
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return Math.round(avg * 5); // note sur 20 -> sur 100
+  const rows = evals ?? [];
+
+  function avg(nums: number[]): number {
+    if (nums.length === 0) return 0;
+    return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
   }
 
-  const technique = avgEval("technique");
-  const vision = avgEval("tactique");
-  const espritEquipe = avgEval("esprit_sportif");
+  const passPcts = rows.map((r) => r.precision_passes).filter((v): v is number => v !== null && v !== undefined);
+  const dribblePcts = rows
+    .map((r) => r.dribbles_reussis_pct)
+    .filter((v): v is number => v !== null && v !== undefined);
+  const shotAccuracies = rows
+    .filter((r) => r.tirs_tentes && r.tirs_tentes > 0)
+    .map((r) => Math.round(((r.tirs_cadres ?? 0) / (r.tirs_tentes as number)) * 100));
+
+  // Technique = moyenne de trois indicateurs objectifs du jeu
+  const technique = avg([...passPcts, ...dribblePcts, ...shotAccuracies]);
+
+  // Vision = passes clés par match, ramenées sur 100
+  // (repère : 5 passes clés de moyenne par match = 100)
+  const passesClesValues = rows.map((r) => r.passes_cles).filter((v): v is number => v !== null && v !== undefined);
+  const avgPassesCles =
+    passesClesValues.length > 0 ? passesClesValues.reduce((a, b) => a + b, 0) / passesClesValues.length : 0;
+  const vision = Math.min(100, Math.round(avgPassesCles * 20));
 
   const attaque =
     stats.matchsJoues > 0 ? Math.min(100, Math.round((stats.butsMarques / stats.matchsJoues) * 25)) : 0;
@@ -79,13 +93,11 @@ export async function getPlayerCardStats(playerId: string): Promise<CardStats> {
       ? Math.round(((stats.victoires + stats.nuls * 0.5) / stats.matchsJoues) * 100)
       : 0;
 
-  return { attaque, defense, technique, vision, regularite, espritEquipe };
+  return { attaque, defense, technique, vision, regularite };
 }
 
 export function getOverallScore(stats: CardStats): number {
-  return Math.round(
-    (stats.attaque + stats.defense + stats.technique + stats.vision + stats.regularite + stats.espritEquipe) / 6
-  );
+  return Math.round((stats.attaque + stats.defense + stats.technique + stats.vision + stats.regularite) / 5);
 }
 
 export async function getPlayerStatsSummaries(playerIds: string[]): Promise<Record<string, StatsSummary>> {

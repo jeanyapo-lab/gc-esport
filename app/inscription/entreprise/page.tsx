@@ -13,12 +13,14 @@ export default function InscriptionEntreprisePage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [piege, setPiege] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [acceptCgu, setAcceptCgu] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (piege) return; // anti-spam silencieux
     setError(null);
     setLoading(true);
 
@@ -74,6 +76,15 @@ export default function InscriptionEntreprisePage() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-5">
+        <input
+          type="text"
+          value={piege}
+          onChange={(e) => setPiege(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+        />
         <Field label="Nom de l'entreprise">
           <input
             required

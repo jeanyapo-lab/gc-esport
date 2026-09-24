@@ -103,9 +103,14 @@ export default function ShortlistPage() {
                 rows={2}
                 defaultValue={e.notes ?? ""}
                 onChange={(ev) => setNotesDraft((prev) => ({ ...prev, [e.id]: ev.target.value }))}
-                onBlur={() => handleSaveNotes(e.id)}
                 className="input mt-4"
               />
+              <button
+                onClick={() => handleSaveNotes(e.id)}
+                className="mt-2 rounded-full border border-lime px-4 py-2 font-body text-xs font-semibold text-lime hover:bg-lime hover:text-ink"
+              >
+                Enregistrer la note
+              </button>
             </div>
           );
         })}

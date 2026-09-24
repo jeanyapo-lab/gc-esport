@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummary, getPlayerCardStats } from "@/lib/playerStats";
 import PlayerCard from "@/components/PlayerCard";
+import SocialLinks from "@/components/SocialLinks";
 
 export const revalidate = 60;
 
@@ -10,7 +11,7 @@ export default async function JoueurDetailPage({ params }: { params: { id: strin
   const { data: joueur } = await supabase
     .from("player_profiles")
     .select(
-      "id, pseudo, ville, niveau_declare, photo_url, palmares, experience_competitive, profil_public, statut"
+      "id, pseudo, ville, niveau_declare, photo_url, palmares, experience_competitive, profil_public, statut, reseaux_sociaux"
     )
     .eq("id", params.id)
     .single();
@@ -48,6 +49,9 @@ export default async function JoueurDetailPage({ params }: { params: { id: strin
           <h1 className="font-display text-4xl">{joueur.pseudo}</h1>
           <p className="font-body text-white/50">{joueur.ville}</p>
           {joueur.niveau_declare && <p className="mt-1 font-body text-sm text-lime">{joueur.niveau_declare}</p>}
+          <div className="mt-3">
+            <SocialLinks reseaux={joueur.reseaux_sociaux} />
+          </div>
         </div>
       </div>
 

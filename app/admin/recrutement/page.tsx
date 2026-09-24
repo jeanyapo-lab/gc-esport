@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
+import { logAction } from "@/lib/auditLog";
 
 const ROSTER_MAX = 5;
 
@@ -33,6 +34,7 @@ const statutLabel: Record<string, string> = {
 export default function AdminRecrutementPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
 
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -47,6 +49,7 @@ export default function AdminRecrutementPage() {
         router.push("/connexion");
         return;
       }
+      setUserId(sessionData.session.user.id);
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -174,6 +177,10 @@ export default function AdminRecrutementPage() {
 
     await supabase.from("team_assignments").insert({ team_id: teamId, player_id: offer.player_id, titulaire: true });
     await supabase.from("recruitment_offers").update({ statut: "validee" }).eq("id", offer.id);
+    await logAction(userId, `validation_${offer.type}`, "recruitment_offers", offer.id, {
+      player_id: offer.player_id,
+      company_id: offer.company_id,
+    });
 
     const playerUserId = await getUserIdFromPlayerId(offer.player_id);
     await notify(playerUserId, "Recrutement validé", "GC ESPORT a validé ton recrutement/transfert.");
@@ -214,14 +221,20 @@ export default function AdminRecrutementPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-24">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-4xl">Recrutement & transferts</h1>
+        <div>
+          <h1 className="font-display text-4xl">Recrutement & transferts</h1>
+          <p className="mt-2 font-body text-sm text-white/60">
+            Les recrutements se finalisent désormais automatiquement dès l'accord des parties. Cette page ne liste
+            que les cas bloqués nécessitant ton intervention, et l'historique complet.
+          </p>
+        </div>
         <Link href="/admin" className="font-body text-sm text-white/50 hover:text-white">
           ← Retour à l'admin
         </Link>
       </div>
 
       <section className="mt-10">
-        <p className="font-display text-lg text-orange">À valider</p>
+        <p className="font-display text-lg text-orange">Cas bloqués — ton intervention est nécessaire</p>
         <div className="mt-4 space-y-3">
           {aValider.map((o) => {
             const mineur = estMineur(o.player_id);

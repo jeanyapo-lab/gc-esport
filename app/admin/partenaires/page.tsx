@@ -21,6 +21,7 @@ export default function AdminPartenairesPage() {
 
   const [nom, setNom] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [type, setType] = useState("");
 
   useEffect(() => {
@@ -47,6 +48,23 @@ export default function AdminPartenairesPage() {
   async function loadAll() {
     const { data } = await supabase.from("sponsors").select("id, nom, logo_url, type_partenariat, confirme").order("created_at", { ascending: false });
     setSponsors(data ?? []);
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop();
+    const path = `sponsors/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (uploadError) {
+      alert("Erreur lors de l'envoi du logo : " + uploadError.message);
+      setUploadingLogo(false);
+      return;
+    }
+    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    setLogoUrl(publicUrlData.publicUrl);
+    setUploadingLogo(false);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -84,7 +102,18 @@ export default function AdminPartenairesPage() {
         <p className="font-display text-lg text-lime">Ajouter un partenaire</p>
         <form onSubmit={handleCreate} className="mt-4 grid gap-4 sm:grid-cols-3">
           <input placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} className="input" required />
-          <input placeholder="Logo (URL)" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} className="input" />
+          <div className="flex items-center gap-3">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Logo" className="h-12 w-12 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-ink text-xs text-white/30">Aucun</div>
+            )}
+            <label className="cursor-pointer rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50">
+              {uploadingLogo ? "Envoi…" : "Choisir un logo"}
+              <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" disabled={uploadingLogo} />
+            </label>
+          </div>
           <input placeholder="Type de partenariat" value={type} onChange={(e) => setType(e.target.value)} className="input" />
           <button type="submit" className="sm:col-span-3 rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime">
             Ajouter
@@ -95,9 +124,17 @@ export default function AdminPartenairesPage() {
       <section className="mt-8 space-y-3">
         {sponsors.map((s) => (
           <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-5">
-            <div>
-              <p className="font-body font-semibold">{s.nom}</p>
-              <p className="font-body text-xs text-white/50">{s.type_partenariat}</p>
+            <div className="flex items-center gap-3">
+              {s.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.logo_url} alt={s.nom} className="h-10 w-10 rounded-lg object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink text-xs text-white/30">?</div>
+              )}
+              <div>
+                <p className="font-body font-semibold">{s.nom}</p>
+                <p className="font-body text-xs text-white/50">{s.type_partenariat}</p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button

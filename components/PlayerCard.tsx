@@ -6,7 +6,6 @@ const rows: { key: keyof CardStats; label: string }[] = [
   { key: "technique", label: "Technique" },
   { key: "vision", label: "Vision" },
   { key: "regularite", label: "Régularité" },
-  { key: "espritEquipe", label: "Esprit d'équipe" },
 ];
 
 export default function PlayerCard({ stats }: { stats: CardStats }) {

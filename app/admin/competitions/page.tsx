@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { logAction } from "@/lib/auditLog";
 
 type Game = { id: string; nom: string; actif: boolean };
 type Competition = {
@@ -38,6 +39,7 @@ export default function AdminCompetitionsPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [games, setGames] = useState<Game[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -73,6 +75,7 @@ export default function AdminCompetitionsPage() {
         router.push("/connexion");
         return;
       }
+      setUserId(sessionData.session.user.id);
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -193,6 +196,7 @@ export default function AdminCompetitionsPage() {
       alert("Erreur lors de la suppression : " + error.message);
       return;
     }
+    await logAction(userId, "suppression_competition", "competitions", c.id, { nom: c.nom });
     await loadAll();
   }
 
@@ -233,6 +237,7 @@ export default function AdminCompetitionsPage() {
       alert("Erreur lors de la suppression : " + error.message);
       return;
     }
+    await logAction(userId, "suppression_edition", "editions", ed.id, { nom: ed.nom });
     await loadAll();
   }
 
@@ -318,6 +323,7 @@ export default function AdminCompetitionsPage() {
           </select>
           <select value={formatComp} onChange={(e) => setFormatComp(e.target.value)} className="input">
             <option value="poules">Poules</option>
+            <option value="poules_elimination">Poules puis élimination directe</option>
             <option value="elimination_directe">Élimination directe</option>
             <option value="ligue">Ligue</option>
           </select>
@@ -392,6 +398,7 @@ export default function AdminCompetitionsPage() {
                   <input value={editNom} onChange={(e) => setEditNom(e.target.value)} className="input" required />
                   <select value={editFormat} onChange={(e) => setEditFormat(e.target.value)} className="input">
                     <option value="poules">Poules</option>
+                    <option value="poules_elimination">Poules puis élimination directe</option>
                     <option value="elimination_directe">Élimination directe</option>
                     <option value="ligue">Ligue</option>
                   </select>

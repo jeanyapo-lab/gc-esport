@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummaries, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
 import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
 import { downloadCSV } from "@/lib/csv";
+import { logAction } from "@/lib/auditLog";
 
 type Player = {
   id: string;
@@ -63,6 +64,7 @@ export default function AdminPage() {
     equipesConstituees: 0,
     competitionsEnCours: 0,
   });
+  const [badges, setBadges] = useState({ messages: 0, recrutement: 0, engagements: 0, signalements: 0, sondages: 0 });
 
   useEffect(() => {
     async function init() {
@@ -151,6 +153,38 @@ export default function AdminPage() {
       equipesConstituees: equipesConstituees ?? 0,
       competitionsEnCours: competitionsEnCours ?? 0,
     });
+
+    const [{ count: messagesNonLus }, { count: recrutementBloques }, { data: engagementsEnAttente }, { count: signalementsEnAttente }, { data: pollsActifs }] = await Promise.all([
+      supabase.from("contact_messages").select("*", { count: "exact", head: true }).eq("lu", false),
+      supabase.from("recruitment_offers").select("*", { count: "exact", head: true }).eq("statut", "en_attente_validation_gcesport"),
+      supabase.from("engagements").select("id").eq("statut", "en_attente_signature"),
+      supabase.from("message_reports").select("*", { count: "exact", head: true }).eq("statut", "en_attente"),
+      supabase.from("polls").select("id").eq("actif", true),
+    ]);
+
+    let votesSondages = 0;
+    const pollIds = (pollsActifs ?? []).map((p) => p.id);
+    if (pollIds.length > 0) {
+      const { count } = await supabase.from("poll_votes").select("*", { count: "exact", head: true }).in("poll_id", pollIds);
+      votesSondages = count ?? 0;
+    }
+
+    // Parmi les engagements "en attente de signature", seuls ceux avec
+    // un document réellement déposé ont besoin d'une action admin.
+    let engagementsAvecDocument = 0;
+    const engagementIds = (engagementsEnAttente ?? []).map((e) => e.id);
+    if (engagementIds.length > 0) {
+      const { data: docs } = await supabase.from("documents").select("engagement_id").in("engagement_id", engagementIds);
+      engagementsAvecDocument = new Set((docs ?? []).map((d) => d.engagement_id)).size;
+    }
+
+    setBadges({
+      messages: messagesNonLus ?? 0,
+      recrutement: recrutementBloques ?? 0,
+      engagements: engagementsAvecDocument,
+      signalements: signalementsEnAttente ?? 0,
+      sondages: votesSondages,
+    });
   }
 
   async function updatePlayerStatut(player: Player, nouveauStatut: string) {
@@ -196,6 +230,7 @@ export default function AdminPage() {
       );
       return;
     }
+    await logAction(userId, "suppression_joueur", "player_profiles", player.id, { pseudo: player.pseudo });
     await loadData();
   }
 
@@ -209,6 +244,7 @@ export default function AdminPage() {
       );
       return;
     }
+    await logAction(userId, "suppression_entreprise", "companies", company.id, { nom: company.nom });
     await loadData();
   }
 
@@ -255,24 +291,32 @@ export default function AdminPage() {
       {/* Sections de gestion */}
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
+          { href: "/admin/equipe-gc", label: "Équipe GC ESPORT", desc: "Le roster propre à l'association" },
           { href: "/admin/draft", label: "Draft", desc: "Éditions, ordre de sélection, validations" },
           { href: "/admin/championnat", label: "Championnat", desc: "Matchs, scores, classement (poules/ligue)" },
           { href: "/admin/bracket", label: "Bracket", desc: "Tableau à élimination directe" },
           { href: "/admin/combine", label: "Combine", desc: "Sessions d'évaluation des joueurs" },
-          { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts" },
-          { href: "/admin/engagements", label: "Engagements", desc: "Documents et consentements" },
+          { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts", badge: badges.recrutement },
+          { href: "/admin/engagements", label: "Engagements", desc: "Documents et consentements", badge: badges.engagements },
           { href: "/admin/competitions", label: "Compétitions", desc: "Jeux, compétitions, éditions" },
           { href: "/admin/partenaires", label: "Partenaires", desc: "Sponsors de GC ESPORT" },
           { href: "/admin/actualites", label: "Actualités", desc: "Articles publiés sur le site" },
-          { href: "/admin/sondages", label: "Sondages", desc: "Fan Zone" },
+          { href: "/admin/sondages", label: "Sondages", desc: "Fan Zone", badge: badges.sondages },
           { href: "/admin/utilisateurs", label: "Utilisateurs", desc: "Rôles et permissions admin" },
-          { href: "/admin/messages", label: "Messages", desc: "Messages reçus via le formulaire de contact" },
+          { href: "/admin/audit", label: "Journal d'audit", desc: "Actions sensibles enregistrées" },
+          { href: "/admin/messages", label: "Messages", desc: "Messages reçus via le formulaire de contact", badge: badges.messages },
+          { href: "/admin/signalements", label: "Signalements", desc: "Messages signalés entre joueurs et entreprises", badge: badges.signalements },
         ].map((s) => (
           <Link
             key={s.href}
             href={s.href}
-            className="rounded-2xl border border-line bg-panel p-5 transition hover:border-orange"
+            className="relative rounded-2xl border border-line bg-panel p-5 transition hover:border-orange"
           >
+            {!!s.badge && (
+              <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-orange px-1.5 font-body text-xs font-bold text-ink">
+                {s.badge}
+              </span>
+            )}
             <p className="font-display text-lg">{s.label}</p>
             <p className="mt-1 font-body text-xs text-white/50">{s.desc}</p>
           </Link>
@@ -363,12 +407,12 @@ export default function AdminPage() {
                   <p className="mt-1 font-body text-[11px] text-white/30">
                     ATT {cardStatsMap[p.id].attaque} · DEF {cardStatsMap[p.id].defense} · TEC{" "}
                     {cardStatsMap[p.id].technique} · VIS {cardStatsMap[p.id].vision} · REG{" "}
-                    {cardStatsMap[p.id].regularite} · EQ {cardStatsMap[p.id].espritEquipe}
+                    {cardStatsMap[p.id].regularite}
                   </p>
                 )}
               </div>
               <div className="flex gap-2">
-                {p.statut !== "profil_verifie" && (
+                {!["profil_verifie", "eligible_draft"].includes(p.statut) && (
                   <button
                     onClick={() => updatePlayerStatut(p, "profil_verifie")}
                     className="rounded-full bg-lime px-4 py-2 font-body text-xs font-semibold text-ink hover:opacity-90"

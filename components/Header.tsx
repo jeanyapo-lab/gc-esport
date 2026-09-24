@@ -8,6 +8,7 @@ import NotificationBell from "./NotificationBell";
 
 const mainLinks = [
   { href: "/competitions", label: "Compétitions" },
+  { href: "/notre-equipe", label: "Notre équipe" },
   { href: "/draft", label: "Draft" },
   { href: "/joueurs", label: "Joueurs" },
   { href: "/entreprises", label: "Entreprises" },
@@ -15,10 +16,12 @@ const mainLinks = [
 
 const moreLinks = [
   { href: "/classements", label: "Classements" },
+  { href: "/calendrier", label: "Calendrier" },
   { href: "/equipes", label: "Équipes" },
   { href: "/actualites", label: "Actualités" },
   { href: "/fan-zone", label: "Fan Zone" },
   { href: "/partenaires", label: "Partenaires" },
+  { href: "/faq", label: "FAQ" },
   { href: "/a-propos", label: "À propos" },
   { href: "/contact", label: "Contact" },
 ];

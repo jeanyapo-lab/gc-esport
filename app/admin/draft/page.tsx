@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
+import { logAction } from "@/lib/auditLog";
 
 type Competition = { id: string; nom: string };
 type DraftEdition = {
@@ -49,6 +50,7 @@ const pickStatutLabel: Record<string, string> = {
 export default function AdminDraftPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
 
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -77,6 +79,7 @@ export default function AdminDraftPage() {
         router.push("/connexion");
         return;
       }
+      setUserId(sessionData.session.user.id);
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -282,6 +285,10 @@ export default function AdminDraftPage() {
     });
 
     await supabase.from("draft_picks").update({ statut: "affectation_confirmee" }).eq("id", pick.id);
+    await logAction(userId, "validation_affectation_draft", "draft_picks", pick.id, {
+      player_id: pick.player_id,
+      company_id: pick.company_id,
+    });
 
     const playerUserId = await getUserIdFromPlayerId(pick.player_id);
     await notify(playerUserId, "Affectation confirmée", "Ton affectation au Draft a été validée par GC ESPORT.");

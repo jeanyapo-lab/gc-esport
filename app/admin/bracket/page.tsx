@@ -22,6 +22,7 @@ export default function AdminBracketPage() {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [generating, setGenerating] = useState(false);
   const [scoreEdits, setScoreEdits] = useState<Record<string, { a: string; b: string }>>({});
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function init() {
@@ -59,6 +60,7 @@ export default function AdminBracketPage() {
   async function loadEditionData() {
     const { data: teamsData } = await supabase.from("teams").select("id, nom").eq("edition_id", editionId);
     setTeams(teamsData ?? []);
+    setSelectedTeamIds(new Set((teamsData ?? []).map((t) => t.id)));
 
     const { data: matchesData } = await supabase
       .from("bracket_matches")
@@ -69,9 +71,19 @@ export default function AdminBracketPage() {
     setMatches(matchesData ?? []);
   }
 
+  function toggleTeamSelection(teamId: string) {
+    setSelectedTeamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      return next;
+    });
+  }
+
   async function handleGenerate() {
-    if (teams.length < 2) {
-      alert("Il faut au moins 2 équipes dans cette édition pour générer un tableau.");
+    const qualifies = teams.filter((t) => selectedTeamIds.has(t.id));
+    if (qualifies.length < 2) {
+      alert("Sélectionne au moins 2 équipes qualifiées pour générer un tableau.");
       return;
     }
     if (matches.length > 0 && !confirm("Un tableau existe déjà pour cette édition. Le régénérer effacera l'actuel. Continuer ?")) {
@@ -83,7 +95,7 @@ export default function AdminBracketPage() {
     }
     await generateBracket(
       editionId,
-      teams.map((t) => t.id)
+      qualifies.map((t) => t.id)
     );
     setGenerating(false);
     await loadEditionData();
@@ -143,16 +155,29 @@ export default function AdminBracketPage() {
             </p>
           )}
 
-          <div className="mt-6 flex items-center gap-4">
-            <p className="font-body text-sm text-white/60">{teams.length} équipe(s) engagée(s) sur cette édition</p>
+          <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
+            <p className="font-display text-lg text-lime">Équipes qualifiées</p>
+            <p className="mt-1 font-body text-xs text-white/50">
+              Coche les équipes qui participent au tableau à élimination directe — utile si elles doivent d'abord
+              sortir d'une phase de groupes.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {teams.map((t) => (
+                <label key={t.id} className="flex items-center gap-3 rounded-lg border border-line px-4 py-2 font-body text-sm">
+                  <input type="checkbox" checked={selectedTeamIds.has(t.id)} onChange={() => toggleTeamSelection(t.id)} />
+                  {t.nom}
+                </label>
+              ))}
+              {teams.length === 0 && <p className="font-body text-sm text-white/40">Aucune équipe sur cette édition.</p>}
+            </div>
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime disabled:opacity-50"
+              className="mt-4 rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime disabled:opacity-50"
             >
               {generating ? "Génération…" : matches.length > 0 ? "Régénérer le tableau" : "Générer le tableau"}
             </button>
-          </div>
+          </section>
 
           {matches.length > 0 && (
             <div className="mt-10 flex gap-6 overflow-x-auto pb-6">

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { computeClassement, type ClassementRow } from "@/lib/classement";
+import { computeClassementParGroupe, type ClassementRow } from "@/lib/classement";
 
 type Edition = { id: string; nom: string; competition_id: string };
 type Competition = { id: string; nom: string };
-type Team = { id: string; nom: string };
+type Team = { id: string; nom: string; groupe: string | null };
 type Assignment = { team_id: string; player_id: string };
 type Player = { id: string; pseudo: string };
 type Match = {
@@ -35,7 +35,7 @@ export default function AdminChampionnatPage() {
   const [playersMap, setPlayersMap] = useState<Record<string, string>>({});
   const [playerTeamMap, setPlayerTeamMap] = useState<Record<string, string>>({});
   const [matches, setMatches] = useState<Match[]>([]);
-  const [classement, setClassement] = useState<ClassementRow[]>([]);
+  const [classementParGroupe, setClassementParGroupe] = useState<Record<string, ClassementRow[]>>({});
 
   const [joueur1Id, setJoueur1Id] = useState("");
   const [joueur2Id, setJoueur2Id] = useState("");
@@ -82,7 +82,7 @@ export default function AdminChampionnatPage() {
   }, [selectedEditionId]);
 
   async function loadEditionData(editionId: string) {
-    const { data: teamsData } = await supabase.from("teams").select("id, nom").eq("edition_id", editionId);
+    const { data: teamsData } = await supabase.from("teams").select("id, nom, groupe").eq("edition_id", editionId);
     setTeams(teamsData ?? []);
 
     const teamIds = (teamsData ?? []).map((t) => t.id);
@@ -118,12 +118,26 @@ export default function AdminChampionnatPage() {
       .order("created_at", { ascending: false });
     setMatches(matchesData ?? []);
 
-    setClassement(computeClassement(teamsData ?? [], assignmentsData, matchesData ?? []));
+    setClassementParGroupe(computeClassementParGroupe(teamsData ?? [], assignmentsData, matchesData ?? []));
+  }
+
+  async function handleUpdateGroupe(teamId: string, groupe: string) {
+    await supabase.from("teams").update({ groupe: groupe || null }).eq("id", teamId);
+    if (selectedEditionId) await loadEditionData(selectedEditionId);
   }
 
   async function handleCreateMatch(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedEditionId || !joueur1Id || !joueur2Id || joueur1Id === joueur2Id) return;
+    if (!selectedEditionId) return;
+
+    if (!joueur1Id || !joueur2Id) {
+      alert("Choisis un joueur dans les deux menus déroulants.");
+      return;
+    }
+    if (joueur1Id === joueur2Id) {
+      alert("Il faut deux joueurs différents pour programmer un match.");
+      return;
+    }
 
     await supabase.from("matches").insert({
       edition_id: selectedEditionId,
@@ -200,6 +214,30 @@ export default function AdminChampionnatPage() {
             </p>
           ) : (
             <>
+              {/* Groupes */}
+              <section className="mt-10 rounded-2xl border border-line bg-panel p-6">
+                <p className="font-display text-lg text-lime">Groupes</p>
+                <p className="mt-1 font-body text-xs text-white/50">
+                  Attribue un groupe à chaque équipe pour un format "poules" (Groupe A, Groupe B...). Laisse vide
+                  pour un classement unique.
+                </p>
+                <div className="mt-4 space-y-2">
+                  {teams.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-4 py-2">
+                      <span className="font-body text-sm">{t.nom}</span>
+                      <input
+                        defaultValue={t.groupe ?? ""}
+                        placeholder="Groupe A"
+                        onBlur={(e) => {
+                          if (e.target.value !== (t.groupe ?? "")) handleUpdateGroupe(t.id, e.target.value);
+                        }}
+                        className="input w-40 py-1 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
               {/* Créer un match */}
               <section className="mt-10 rounded-2xl border border-line bg-panel p-6">
                 <p className="font-display text-lg text-lime">Programmer un match</p>
@@ -295,39 +333,55 @@ export default function AdminChampionnatPage() {
               </section>
 
               {/* Classement */}
-              <section className="mt-10">
-                <p className="font-display text-lg text-lime">Classement</p>
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-panel">
-                  <table className="w-full font-body text-sm">
-                    <thead>
-                      <tr className="border-b border-line text-left text-xs uppercase text-white/40">
-                        <th className="px-4 py-3">Équipe</th>
-                        <th className="px-3 py-3 text-center">J</th>
-                        <th className="px-3 py-3 text-center">V</th>
-                        <th className="px-3 py-3 text-center">N</th>
-                        <th className="px-3 py-3 text-center">D</th>
-                        <th className="px-3 py-3 text-center">BM</th>
-                        <th className="px-3 py-3 text-center">BE</th>
-                        <th className="px-3 py-3 text-center">Pts</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classement.map((row) => (
-                        <tr key={row.teamId} className="border-b border-line last:border-0">
-                          <td className="px-4 py-3">{row.nom}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.matchsJoues}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.victoires}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.nuls}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.defaites}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.butsMarques}</td>
-                          <td className="px-3 py-3 text-center text-white/60">{row.butsEncaisses}</td>
-                          <td className="px-3 py-3 text-center font-semibold text-lime">{row.points}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <section className="mt-10 space-y-8">
+                {Object.entries(classementParGroupe).map(([groupe, rows]) => (
+                  <div key={groupe}>
+                    <p className="font-display text-lg text-lime">
+                      {groupe === "Groupe unique" ? "Classement" : groupe}
+                    </p>
+                    <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-panel">
+                      <table className="w-full font-body text-sm">
+                        <thead>
+                          <tr className="border-b border-line text-left text-xs uppercase text-white/40">
+                            <th className="px-4 py-3">Équipe</th>
+                            <th className="px-3 py-3 text-center">J</th>
+                            <th className="px-3 py-3 text-center">V</th>
+                            <th className="px-3 py-3 text-center">N</th>
+                            <th className="px-3 py-3 text-center">D</th>
+                            <th className="px-3 py-3 text-center">BM</th>
+                            <th className="px-3 py-3 text-center">BE</th>
+                            <th className="px-3 py-3 text-center">Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row) => (
+                            <tr key={row.teamId} className="border-b border-line last:border-0">
+                              <td className="px-4 py-3">{row.nom}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.matchsJoues}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.victoires}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.nuls}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.defaites}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.butsMarques}</td>
+                              <td className="px-3 py-3 text-center text-white/60">{row.butsEncaisses}</td>
+                              <td className="px-3 py-3 text-center font-semibold text-lime">{row.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </section>
+
+              <div className="mt-8 rounded-2xl border border-lime/40 bg-lime/10 p-6">
+                <p className="font-body text-sm text-lime">
+                  Phase de groupes terminée ? Va sur{" "}
+                  <Link href="/admin/bracket" className="underline">
+                    Bracket
+                  </Link>{" "}
+                  pour choisir précisément quelles équipes qualifiées passent en élimination directe.
+                </p>
+              </div>
             </>
           )}
         </>

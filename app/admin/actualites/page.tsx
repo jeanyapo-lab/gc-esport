@@ -17,6 +17,7 @@ export default function AdminActualitesPage() {
   const [titre, setTitre] = useState("");
   const [contenu, setContenu] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -43,6 +44,23 @@ export default function AdminActualitesPage() {
   async function loadAll() {
     const { data } = await supabase.from("news").select("id, titre, contenu, image_url, publie").order("created_at", { ascending: false });
     setArticles(data ?? []);
+  }
+
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    const ext = file.name.split(".").pop();
+    const path = `actualites/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (uploadError) {
+      alert("Erreur lors de l'envoi de l'image : " + uploadError.message);
+      setUploadingImage(false);
+      return;
+    }
+    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    setImageUrl(publicUrlData.publicUrl);
+    setUploadingImage(false);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -80,7 +98,18 @@ export default function AdminActualitesPage() {
         <p className="font-display text-lg text-lime">Nouvel article</p>
         <form onSubmit={handleCreate} className="mt-4 space-y-4">
           <input placeholder="Titre" value={titre} onChange={(e) => setTitre(e.target.value)} className="input" required />
-          <input placeholder="Image (URL, optionnel)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="input" />
+          <div className="flex items-center gap-3">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="Image" className="h-16 w-16 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-ink text-xs text-white/30">Aucune</div>
+            )}
+            <label className="cursor-pointer rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50">
+              {uploadingImage ? "Envoi…" : "Choisir une image (optionnel)"}
+              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" disabled={uploadingImage} />
+            </label>
+          </div>
           <textarea placeholder="Contenu" rows={6} value={contenu} onChange={(e) => setContenu(e.target.value)} className="input" required />
           <button type="submit" className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime">
             Créer l'article (brouillon)

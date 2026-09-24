@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerCardStats, getOverallScore } from "@/lib/playerStats";
 import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
+import { attemptFinalizeOffer } from "@/lib/recruitment";
+import SocialLinks from "@/components/SocialLinks";
 
 const ROSTER_MAX = 5;
 
@@ -17,6 +19,8 @@ type PlayerRow = {
   niveau_declare: string | null;
   photo_url: string | null;
   overall: number;
+  comportement_signale: boolean;
+  reseaux_sociaux?: { twitter?: string; twitch?: string; youtube?: string; instagram?: string; discord?: string } | null;
   currentCompanyId?: string;
   currentCompanyNom?: string;
 };
@@ -26,9 +30,11 @@ type Offer = {
   player_id: string;
   company_id: string;
   ancienne_company_id: string | null;
+  edition_id: string;
   statut: string;
   duree_mois: number | null;
   budget_propose: string | null;
+  conditions?: string | null;
 };
 
 const offerStatutLabel: Record<string, string> = {
@@ -43,8 +49,11 @@ const offerStatutLabel: Record<string, string> = {
 
 export default function RecrutementEntreprisePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedPlayerId = searchParams.get("player");
   const [loading, setLoading] = useState(true);
   const [myCompanyId, setMyCompanyId] = useState<string | null>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
 
   const [editions, setEditions] = useState<Edition[]>([]);
   const [competitionsMap, setCompetitionsMap] = useState<Record<string, string>>({});
@@ -52,9 +61,12 @@ export default function RecrutementEntreprisePage() {
 
   const [joueursLibres, setJoueursLibres] = useState<PlayerRow[]>([]);
   const [joueursRecrutes, setJoueursRecrutes] = useState<PlayerRow[]>([]);
+  const [autoOpened, setAutoOpened] = useState(false);
   const [effectifActuel, setEffectifActuel] = useState(0);
 
   const [offresRecues, setOffresRecues] = useState<Offer[]>([]);
+  const [candidaturesRecues, setCandidaturesRecues] = useState<Offer[]>([]);
+  const [candidaturesPlayersMap, setCandidaturesPlayersMap] = useState<Record<string, string>>({});
   const [mesOffres, setMesOffres] = useState<Offer[]>([]);
   const [playersMap, setPlayersMap] = useState<Record<string, string>>({});
 
@@ -81,6 +93,8 @@ export default function RecrutementEntreprisePage() {
       router.push("/connexion");
       return;
     }
+
+    setMyUserId(sessionData.session.user.id);
 
     const { data: rep } = await supabase
       .from("company_reps")
@@ -147,7 +161,7 @@ export default function RecrutementEntreprisePage() {
     // Joueurs éligibles (libres)
     const { data: eligibles } = await supabase
       .from("player_profiles")
-      .select("id, pseudo, ville, niveau_declare, photo_url")
+      .select("id, pseudo, ville, niveau_declare, photo_url, comportement_signale, reseaux_sociaux")
       .eq("statut", "eligible_draft");
 
     const libres = (eligibles ?? []).filter((p) => !recrutedPlayerIds.has(p.id));
@@ -170,18 +184,46 @@ export default function RecrutementEntreprisePage() {
     setJoueursLibres(libresAvecNote);
     setJoueursRecrutes(recrutesAvecNote);
 
+    if (preselectedPlayerId && !autoOpened) {
+      const libre = libresAvecNote.find((p) => p.id === preselectedPlayerId);
+      const recrute = recrutesAvecNote.find((p) => p.id === preselectedPlayerId);
+      if (libre) {
+        openForm(libre.id, "recrutement_libre");
+        setAutoOpened(true);
+      } else if (recrute) {
+        openForm(recrute.id, "transfert", recrute.currentCompanyId);
+        setAutoOpened(true);
+      }
+    }
+
     // Offres où je suis l'ancienne entreprise (à approuver)
     const { data: recues } = await supabase
       .from("recruitment_offers")
-      .select("id, type, player_id, company_id, ancienne_company_id, statut, duree_mois, budget_propose")
+      .select("id, type, player_id, company_id, ancienne_company_id, edition_id, statut, duree_mois, budget_propose")
       .eq("ancienne_company_id", myCompanyId)
       .eq("statut", "en_attente_ancienne_entreprise");
     setOffresRecues(recues ?? []);
 
+    // Candidatures spontanées reçues des joueurs
+    const { data: candidaturesData } = await supabase
+      .from("recruitment_offers")
+      .select("id, type, player_id, company_id, ancienne_company_id, edition_id, statut, duree_mois, budget_propose, conditions")
+      .eq("company_id", myCompanyId)
+      .eq("statut", "en_attente_confirmation_entreprise");
+    setCandidaturesRecues(candidaturesData ?? []);
+
+    if (candidaturesData && candidaturesData.length > 0) {
+      const candPlayerIds = candidaturesData.map((c) => c.player_id);
+      const { data: candPlayersData } = await supabase.from("player_profiles").select("id, pseudo").in("id", candPlayerIds);
+      const map: Record<string, string> = {};
+      (candPlayersData ?? []).forEach((p) => (map[p.id] = p.pseudo));
+      setCandidaturesPlayersMap(map);
+    }
+
     // Mes offres envoyées
     const { data: envoyees } = await supabase
       .from("recruitment_offers")
-      .select("id, type, player_id, company_id, ancienne_company_id, statut, duree_mois, budget_propose")
+      .select("id, type, player_id, company_id, ancienne_company_id, edition_id, statut, duree_mois, budget_propose")
       .eq("company_id", myCompanyId)
       .order("created_at", { ascending: false });
     setMesOffres(envoyees ?? []);
@@ -238,12 +280,11 @@ export default function RecrutementEntreprisePage() {
 
   async function handleApproveDepart(offerId: string) {
     const offer = offresRecues.find((o) => o.id === offerId);
-    await supabase.from("recruitment_offers").update({ statut: "en_attente_validation_gcesport" }).eq("id", offerId);
-    if (offer) {
-      const userIds = await getUserIdsFromCompanyId(offer.company_id);
-      for (const uid of userIds) {
-        await notify(uid, "Départ approuvé", "L'ancienne entreprise a approuvé le transfert — en attente de validation GC ESPORT.");
-      }
+    if (!offer) return;
+
+    const result = await attemptFinalizeOffer(offer, myUserId);
+    if (!result.finalise) {
+      alert(result.raison ?? "En attente de résolution par GC ESPORT.");
     }
     await loadEditionData();
   }
@@ -257,6 +298,17 @@ export default function RecrutementEntreprisePage() {
         await notify(uid, "Transfert refusé", "L'ancienne entreprise a refusé de libérer ce joueur.");
       }
     }
+    await loadEditionData();
+  }
+
+  async function handleAcceptCandidature(offer: Offer) {
+    const result = await attemptFinalizeOffer(offer, myUserId);
+    if (!result.finalise) alert(result.raison ?? "En attente de résolution par GC ESPORT.");
+    await loadEditionData();
+  }
+
+  async function handleRefuseCandidature(offerId: string) {
+    await supabase.from("recruitment_offers").update({ statut: "refusee_entreprise" }).eq("id", offerId);
     await loadEditionData();
   }
 
@@ -287,6 +339,29 @@ export default function RecrutementEntreprisePage() {
         <p className="mt-2 font-body text-xs text-white/50">
           Effectif complet — libérez une place (transfert sortant) pour recruter davantage.
         </p>
+      )}
+
+      {/* Candidatures spontanées de joueurs */}
+      {candidaturesRecues.length > 0 && (
+        <section className="mt-10 rounded-2xl border border-lime/40 bg-panel p-6">
+          <p className="font-display text-lg text-lime">Candidatures spontanées reçues</p>
+          <div className="mt-4 space-y-3">
+            {candidaturesRecues.map((c) => (
+              <div key={c.id} className="rounded-lg border border-line px-4 py-3">
+                <p className="font-body text-sm font-semibold">{candidaturesPlayersMap[c.player_id] ?? "Joueur"}</p>
+                {c.conditions && <p className="mt-1 font-body text-xs text-white/60">{c.conditions}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => handleAcceptCandidature(c)} className="rounded-full bg-lime px-4 py-2 font-body text-xs font-semibold text-ink">
+                    Accepter
+                  </button>
+                  <button onClick={() => handleRefuseCandidature(c.id)} className="rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/70">
+                    Refuser
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Offres reçues sur mes joueurs */}
@@ -438,6 +513,18 @@ function PlayerScoutCard({
           <div>
             <p className="font-body font-semibold">{player.pseudo}</p>
             <p className="font-body text-xs text-white/50">{player.ville}</p>
+            {player.comportement_signale && (
+              <p className="mt-1 font-body text-[11px] text-orange">⚠ Comportement signalé</p>
+            )}
+            <div className="mt-2">
+              <SocialLinks reseaux={player.reseaux_sociaux} />
+            </div>
+            <Link
+              href={`/espace-entreprise/messages?player=${player.id}`}
+              className="mt-2 inline-block font-body text-xs text-orange hover:underline"
+            >
+              💬 Contacter
+            </Link>
           </div>
         </div>
         <div className="flex items-center gap-2">

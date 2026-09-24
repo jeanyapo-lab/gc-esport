@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import ArticleEngagement from "@/components/ArticleEngagement";
 
 export const revalidate = 60;
 
@@ -27,6 +28,7 @@ export default async function ActualitesPage() {
               </p>
               <h2 className="mt-2 font-display text-2xl">{a.titre}</h2>
               <p className="mt-3 whitespace-pre-line font-body text-white/70">{a.contenu}</p>
+              <ArticleEngagement newsId={a.id} />
             </article>
           ))
         ) : (

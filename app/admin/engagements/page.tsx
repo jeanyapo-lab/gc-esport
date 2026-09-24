@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
+import { logAction } from "@/lib/auditLog";
 
 type Engagement = {
   id: string;
@@ -14,6 +15,8 @@ type Engagement = {
   company_id: string | null;
   date_emission: string | null;
   date_validation: string | null;
+  template_url: string | null;
+  motif_refus: string | null;
 };
 type Player = { id: string; pseudo: string };
 type Company = { id: string; nom: string };
@@ -41,6 +44,7 @@ const statutLabels: Record<string, string> = {
 export default function AdminEngagementsPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [authorized, setAuthorized] = useState(false);
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -50,6 +54,8 @@ export default function AdminEngagementsPage() {
 
   const [cible, setCible] = useState<"joueur" | "entreprise">("joueur");
   const [cibleId, setCibleId] = useState("");
+  const [templateUrl, setTemplateUrl] = useState("");
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [type, setType] = useState("charte_joueur");
 
   useEffect(() => {
@@ -59,6 +65,7 @@ export default function AdminEngagementsPage() {
         router.push("/connexion");
         return;
       }
+      setUserId(sessionData.session.user.id);
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -87,7 +94,7 @@ export default function AdminEngagementsPage() {
 
     const { data: engagementsData } = await supabase
       .from("engagements")
-      .select("id, type_engagement, statut, player_id, company_id, date_emission, date_validation")
+      .select("id, type_engagement, statut, player_id, company_id, date_emission, date_validation, template_url, motif_refus")
       .order("date_emission", { ascending: false });
     setEngagements(engagementsData ?? []);
 
@@ -105,6 +112,22 @@ export default function AdminEngagementsPage() {
     }
   }
 
+  async function handleTemplateUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingTemplate(true);
+    const path = `modeles/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (uploadError) {
+      alert("Erreur lors de l'envoi du modèle : " + uploadError.message);
+      setUploadingTemplate(false);
+      return;
+    }
+    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    setTemplateUrl(publicUrlData.publicUrl);
+    setUploadingTemplate(false);
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!cibleId) return;
@@ -115,6 +138,7 @@ export default function AdminEngagementsPage() {
       company_id: cible === "entreprise" ? cibleId : null,
       statut: "en_attente_signature",
       date_emission: new Date().toISOString(),
+      template_url: templateUrl || null,
     });
 
     const label = typeLabels[type] ?? type;
@@ -129,20 +153,39 @@ export default function AdminEngagementsPage() {
     }
 
     setCibleId("");
+    setTemplateUrl("");
     await loadAll();
   }
 
   async function handleUpdateStatut(id: string, statut: string) {
     const engagement = engagements.find((e) => e.id === id);
+
+    let motif: string | null = null;
+    if (statut === "refuse") {
+      motif = prompt("Explique ce qui ne va pas, pour que la personne puisse corriger et redéposer :");
+      if (motif === null) return; // annulé
+    }
+
     await supabase
       .from("engagements")
-      .update({ statut, date_validation: statut === "valide" ? new Date().toISOString() : null })
+      .update({
+        statut,
+        date_validation: statut === "valide" ? new Date().toISOString() : null,
+        motif_refus: statut === "refuse" ? motif : null,
+      })
       .eq("id", id);
+
+    await logAction(userId, `engagement_${statut}`, "engagements", id, {
+      type: engagement?.type_engagement,
+    });
 
     if (engagement) {
       const label = typeLabels[engagement.type_engagement] ?? engagement.type_engagement;
       const titre = statut === "valide" ? "Engagement validé" : "Engagement refusé";
-      const message = `« ${label} » — ${statut === "valide" ? "validé" : "refusé"} par GC ESPORT.`;
+      const message =
+        statut === "valide"
+          ? `« ${label} » — validé par GC ESPORT.`
+          : `« ${label} » — refusé par GC ESPORT. Motif : ${motif}`;
       if (engagement.player_id) {
         const uid = await getUserIdFromPlayerId(engagement.player_id);
         await notify(uid, titre, message);
@@ -214,6 +257,17 @@ export default function AdminEngagementsPage() {
               </option>
             ))}
           </select>
+          <div className="sm:col-span-3 flex items-center gap-3">
+            {templateUrl ? (
+              <span className="font-body text-xs text-lime">✓ Modèle attaché</span>
+            ) : (
+              <span className="font-body text-xs text-white/40">Aucun modèle attaché (optionnel)</span>
+            )}
+            <label className="cursor-pointer rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50">
+              {uploadingTemplate ? "Envoi…" : "Joindre un modèle à signer"}
+              <input type="file" onChange={handleTemplateUpload} className="hidden" disabled={uploadingTemplate} />
+            </label>
+          </div>
           <button
             type="submit"
             className="sm:col-span-3 rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime"

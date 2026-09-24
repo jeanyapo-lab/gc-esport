@@ -1,4 +1,4 @@
-export type Team = { id: string; nom: string };
+export type Team = { id: string; nom: string; groupe?: string | null };
 export type Assignment = { team_id: string; player_id: string };
 export type Match = {
   id: string;
@@ -83,4 +83,22 @@ export function computeClassement(teams: Team[], assignments: Assignment[], matc
     if (diffB !== diffA) return diffB - diffA;
     return b.butsMarques - a.butsMarques;
   });
+}
+
+// Même calcul, mais un classement séparé par groupe (Groupe A,
+// Groupe B...). Les équipes sans groupe assigné sont regroupées
+// sous "Groupe unique" — utile pour les compétitions en simple
+// poule qui n'utilisent pas cette notion.
+export function computeClassementParGroupe(
+  teams: Team[],
+  assignments: Assignment[],
+  matches: Match[]
+): Record<string, ClassementRow[]> {
+  const groupes = Array.from(new Set(teams.map((t) => t.groupe?.trim() || "Groupe unique")));
+  const result: Record<string, ClassementRow[]> = {};
+  for (const g of groupes) {
+    const teamsDuGroupe = teams.filter((t) => (t.groupe?.trim() || "Groupe unique") === g);
+    result[g] = computeClassement(teamsDuGroupe, assignments, matches);
+  }
+  return result;
 }

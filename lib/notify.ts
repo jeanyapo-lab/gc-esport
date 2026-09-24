@@ -23,3 +23,20 @@ export async function getUserIdsFromCompanyId(companyId: string): Promise<string
   const { data } = await supabase.from("company_reps").select("user_id").eq("company_id", companyId);
   return (data ?? []).map((r) => r.user_id);
 }
+
+// Récupère les user_id de tous les comptes admin (pour les informer,
+// sans qu'ils aient à valider une action qui ne le nécessite plus)
+export async function getAdminUserIds(): Promise<string[]> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .in("role", [
+      "super_admin",
+      "admin",
+      "responsable_competitions",
+      "responsable_joueurs",
+      "responsable_partenariats",
+      "responsable_communication",
+    ]);
+  return (data ?? []).map((p) => p.id);
+}

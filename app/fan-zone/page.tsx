@@ -5,11 +5,24 @@ import { supabase } from "@/lib/supabase";
 
 type Poll = { id: string; question: string; actif: boolean };
 type Option = { id: string; poll_id: string; texte: string };
-type Vote = { poll_id: string; option_id: string; user_id: string };
+type Vote = { poll_id: string; option_id: string; user_id: string | null; anon_id: string | null };
+
+// Identifiant anonyme stable, stocké dans le navigateur — permet de
+// voter sans compte, tout en évitant de voter deux fois trop facilement.
+function getAnonId(): string {
+  const key = "gc_esport_anon_id";
+  let id = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+  if (!id) {
+    id = crypto.randomUUID();
+    if (typeof window !== "undefined") localStorage.setItem(key, id);
+  }
+  return id;
+}
 
 export default function FanZonePage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [anonId, setAnonId] = useState<string | null>(null);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [options, setOptions] = useState<Option[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -22,6 +35,7 @@ export default function FanZonePage() {
   async function load() {
     const { data: sessionData } = await supabase.auth.getSession();
     setUserId(sessionData.session?.user.id ?? null);
+    if (!sessionData.session) setAnonId(getAnonId());
 
     const { data: pollsData } = await supabase.from("polls").select("id, question, actif").eq("actif", true).order("created_at", { ascending: false });
     setPolls(pollsData ?? []);
@@ -31,7 +45,7 @@ export default function FanZonePage() {
       const { data: optionsData } = await supabase.from("poll_options").select("id, poll_id, texte").in("poll_id", pollIds);
       setOptions(optionsData ?? []);
 
-      const { data: votesData } = await supabase.from("poll_votes").select("poll_id, option_id, user_id").in("poll_id", pollIds);
+      const { data: votesData } = await supabase.from("poll_votes").select("poll_id, option_id, user_id, anon_id").in("poll_id", pollIds);
       setVotes(votesData ?? []);
     }
 
@@ -39,9 +53,12 @@ export default function FanZonePage() {
   }
 
   async function handleVote(pollId: string, optionId: string) {
-    if (!userId) return;
     setVoting(pollId);
-    await supabase.from("poll_votes").insert({ poll_id: pollId, option_id: optionId, user_id: userId });
+    if (userId) {
+      await supabase.from("poll_votes").insert({ poll_id: pollId, option_id: optionId, user_id: userId });
+    } else {
+      await supabase.from("poll_votes").insert({ poll_id: pollId, option_id: optionId, anon_id: anonId ?? getAnonId() });
+    }
     setVoting(null);
     await load();
   }
@@ -60,7 +77,9 @@ export default function FanZonePage() {
           const pollOptions = options.filter((o) => o.poll_id === poll.id);
           const pollVotes = votes.filter((v) => v.poll_id === poll.id);
           const totalVotes = pollVotes.length;
-          const myVote = pollVotes.find((v) => v.user_id === userId);
+          const myVote = userId
+            ? pollVotes.find((v) => v.user_id === userId)
+            : pollVotes.find((v) => v.anon_id === anonId);
 
           return (
             <div key={poll.id} className="rounded-2xl border border-line bg-panel p-6">
@@ -84,7 +103,7 @@ export default function FanZonePage() {
                         </div>
                       ) : (
                         <button
-                          disabled={!userId || voting === poll.id}
+                          disabled={voting === poll.id}
                           onClick={() => handleVote(poll.id, opt.id)}
                           className="w-full rounded-lg border border-white/20 px-4 py-3 text-left font-body text-sm hover:border-orange disabled:opacity-50"
                         >
@@ -95,7 +114,6 @@ export default function FanZonePage() {
                   );
                 })}
               </div>
-              {!userId && <p className="mt-3 font-body text-xs text-white/40">Connecte-toi pour voter.</p>}
               {myVote && <p className="mt-3 font-body text-xs text-white/40">{totalVotes} vote(s) au total</p>}
             </div>
           );

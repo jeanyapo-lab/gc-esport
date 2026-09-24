@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
+import { attemptFinalizeOffer } from "@/lib/recruitment";
 
 type Offer = {
   id: string;
   type: "recrutement_libre" | "transfert";
   company_id: string;
+  ancienne_company_id: string | null;
+  edition_id: string;
+  player_id: string;
   statut: string;
   duree_mois: number | null;
   budget_propose: string | null;
@@ -23,6 +27,8 @@ export default function OffresJoueurPage() {
   const [autres, setAutres] = useState<Offer[]>([]);
   const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
   const [acting, setActing] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [blocageMsg, setBlocageMsg] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -34,6 +40,8 @@ export default function OffresJoueurPage() {
       router.push("/connexion");
       return;
     }
+
+    setUserId(sessionData.session.user.id);
 
     const { data: player } = await supabase
       .from("player_profiles")
@@ -48,7 +56,7 @@ export default function OffresJoueurPage() {
 
     const { data: offers } = await supabase
       .from("recruitment_offers")
-      .select("id, type, company_id, statut, duree_mois, budget_propose, conditions")
+      .select("id, type, company_id, ancienne_company_id, edition_id, player_id, statut, duree_mois, budget_propose, conditions")
       .eq("player_id", player.id)
       .order("created_at", { ascending: false });
 
@@ -68,21 +76,30 @@ export default function OffresJoueurPage() {
 
   async function handleRespond(offer: Offer, accepte: boolean) {
     setActing(offer.id);
-    const nouveauStatut = !accepte
-      ? "refusee_joueur"
-      : offer.type === "transfert"
-      ? "en_attente_ancienne_entreprise"
-      : "en_attente_validation_gcesport";
+    setBlocageMsg(null);
 
-    await supabase.from("recruitment_offers").update({ statut: nouveauStatut }).eq("id", offer.id);
+    if (!accepte) {
+      await supabase.from("recruitment_offers").update({ statut: "refusee_joueur" }).eq("id", offer.id);
+      const userIds = await getUserIdsFromCompanyId(offer.company_id);
+      for (const uid of userIds) {
+        await notify(uid, "Proposition refusée", "Le joueur a refusé votre proposition.");
+      }
+      setActing(null);
+      await load();
+      return;
+    }
 
-    const userIds = await getUserIdsFromCompanyId(offer.company_id);
-    for (const uid of userIds) {
-      await notify(
-        uid,
-        accepte ? "Proposition acceptée" : "Proposition refusée",
-        accepte ? "Le joueur a accepté votre proposition." : "Le joueur a refusé votre proposition."
-      );
+    if (offer.type === "transfert") {
+      // Il faut encore l'accord de l'ancienne entreprise avant de finaliser
+      await supabase.from("recruitment_offers").update({ statut: "en_attente_ancienne_entreprise" }).eq("id", offer.id);
+      const userIds = await getUserIdsFromCompanyId(offer.company_id);
+      for (const uid of userIds) {
+        await notify(uid, "Proposition acceptée", "Le joueur a accepté — en attente de l'accord de son entreprise actuelle.");
+      }
+    } else {
+      // Recrutement libre : rien d'autre à attendre, on finalise tout de suite
+      const result = await attemptFinalizeOffer(offer, userId);
+      if (!result.finalise) setBlocageMsg(result.raison ?? "En attente de résolution par GC ESPORT.");
     }
 
     setActing(null);
@@ -100,6 +117,11 @@ export default function OffresJoueurPage() {
 
       <section className="mt-10">
         <p className="font-display text-lg text-lime">En attente de ta réponse</p>
+        {blocageMsg && (
+          <p className="mt-3 rounded-lg border border-orange/40 bg-orange/10 px-4 py-3 font-body text-sm text-orange">
+            {blocageMsg}
+          </p>
+        )}
         <div className="mt-4 space-y-4">
           {pending.map((o) => (
             <div key={o.id} className="rounded-2xl border border-line bg-panel p-6">
@@ -126,6 +148,12 @@ export default function OffresJoueurPage() {
                 >
                   Refuser
                 </button>
+                <Link
+                  href={`/espace-joueur/messages?company=${o.company_id}`}
+                  className="rounded-full border border-white/20 px-5 py-2 font-body text-sm text-white/70 hover:border-white/50"
+                >
+                  💬 Discuter
+                </Link>
               </div>
             </div>
           ))}

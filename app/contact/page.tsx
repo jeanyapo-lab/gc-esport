@@ -7,12 +7,20 @@ export default function ContactPage() {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [piege, setPiege] = useState(""); // champ invisible : un humain ne le remplit jamais
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Anti-spam : un robot remplit ce champ caché, un humain ne le voit jamais
+    if (piege) {
+      setSent(true);
+      return;
+    }
+
     setError(null);
     setSending(true);
 
@@ -49,6 +57,15 @@ export default function ContactPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-12 space-y-6">
+          <input
+            type="text"
+            value={piege}
+            onChange={(e) => setPiege(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+          />
           <div>
             <label className="font-body text-sm text-white/70">Nom</label>
             <input

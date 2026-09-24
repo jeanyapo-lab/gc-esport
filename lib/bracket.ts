@@ -76,19 +76,13 @@ export async function generateBracket(editionId: string, teamIds: string[]) {
 
   for (const m of allMatches ?? []) {
     if (m.valide && m.vainqueur_team_id) {
-      await advanceWinner(editionId, m.tour, m.position, m.vainqueur_team_id, allMatches);
+      await advanceWinner(editionId, m.tour, m.position, m.vainqueur_team_id);
     }
   }
 }
 
 // Fait avancer le vainqueur d'un match vers le tour suivant
-async function advanceWinner(
-  editionId: string,
-  tour: number,
-  position: number,
-  winnerTeamId: string,
-  cache?: { tour: number; position: number }[]
-) {
+async function advanceWinner(editionId: string, tour: number, position: number, winnerTeamId: string) {
   const nextTour = tour + 1;
   const nextPosition = Math.floor(position / 2);
   const slotIsA = position % 2 === 0;

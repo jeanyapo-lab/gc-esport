@@ -29,9 +29,17 @@ export default function ProfilJoueurPage() {
   const [disponibilites, setDisponibilites] = useState("");
   const [liensVideos, setLiensVideos] = useState("");
 
-  const [gameId, setGameId] = useState("");
-  const [plateforme, setPlateforme] = useState("");
-  const [identifiantGaming, setIdentifiantGaming] = useState("");
+  const [plateformePrincipale, setPlateformePrincipale] = useState("console");
+  const [selectedGames, setSelectedGames] = useState<Record<string, string>>({}); // game_id -> identifiant_gaming
+
+  function toggleGame(gameId: string) {
+    setSelectedGames((prev) => {
+      const next = { ...prev };
+      if (gameId in next) delete next[gameId];
+      else next[gameId] = "";
+      return next;
+    });
+  }
 
   useEffect(() => {
     async function load() {
@@ -49,7 +57,7 @@ export default function ProfilJoueurPage() {
       const { data: player } = await supabase
         .from("player_profiles")
         .select(
-          "id, statut, ville, date_naissance, niveau_declare, experience_competitive, palmares, disponibilites, liens_videos, photo_url"
+          "id, statut, ville, date_naissance, niveau_declare, experience_competitive, palmares, disponibilites, liens_videos, photo_url, plateforme_principale"
         )
         .eq("user_id", uid)
         .single();
@@ -65,19 +73,16 @@ export default function ProfilJoueurPage() {
         setPalmares(player.palmares ?? "");
         setDisponibilites(player.disponibilites ?? "");
         setLiensVideos((player.liens_videos ?? []).join(", "));
+        setPlateformePrincipale(player.plateforme_principale ?? "console");
 
-        const { data: account } = await supabase
+        const { data: accounts } = await supabase
           .from("player_game_accounts")
-          .select("game_id, plateforme, identifiant_gaming")
-          .eq("player_id", player.id)
-          .limit(1)
-          .maybeSingle();
+          .select("game_id, identifiant_gaming")
+          .eq("player_id", player.id);
 
-        if (account) {
-          setGameId(account.game_id);
-          setPlateforme(account.plateforme ?? "");
-          setIdentifiantGaming(account.identifiant_gaming ?? "");
-        }
+        const existing: Record<string, string> = {};
+        (accounts ?? []).forEach((a) => (existing[a.game_id] = a.identifiant_gaming ?? ""));
+        setSelectedGames(existing);
       }
 
       setLoading(false);
@@ -133,6 +138,7 @@ export default function ProfilJoueurPage() {
         disponibilites,
         liens_videos: liensArray,
         photo_url: photoUrl || null,
+        plateforme_principale: plateformePrincipale,
         statut: nouveauStatut,
       })
       .eq("id", playerId);
@@ -143,19 +149,27 @@ export default function ProfilJoueurPage() {
       return;
     }
 
-    if (gameId) {
+    // Synchronise les jeux sélectionnés : on retire ceux décochés,
+    // on crée/actualise ceux cochés.
+    const { data: existingAccounts } = await supabase
+      .from("player_game_accounts")
+      .select("game_id")
+      .eq("player_id", playerId);
+
+    const previousGameIds = (existingAccounts ?? []).map((a) => a.game_id);
+    const toRemove = previousGameIds.filter((id) => !(id in selectedGames));
+
+    if (toRemove.length > 0) {
+      await supabase.from("player_game_accounts").delete().eq("player_id", playerId).in("game_id", toRemove);
+    }
+
+    for (const [gameId, identifiantGaming] of Object.entries(selectedGames)) {
       const { error: accountError } = await supabase
         .from("player_game_accounts")
         .upsert(
-          {
-            player_id: playerId,
-            game_id: gameId,
-            plateforme,
-            identifiant_gaming: identifiantGaming,
-          },
+          { player_id: playerId, game_id: gameId, identifiant_gaming: identifiantGaming },
           { onConflict: "player_id,game_id" }
         );
-
       if (accountError) {
         setError("Une erreur est survenue : " + accountError.message);
         setSaving(false);
@@ -219,33 +233,51 @@ export default function ProfilJoueurPage() {
         </section>
 
         <section>
-          <p className="font-display text-lg text-lime">Jeu & niveau</p>
-          <div className="mt-4 grid gap-5 sm:grid-cols-2">
-            <Field label="Jeu">
-              <select value={gameId} onChange={(e) => setGameId(e.target.value)} className="input">
-                <option value="">— Choisir —</option>
-                {games.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.nom}
-                  </option>
+          <p className="font-display text-lg text-lime">Plateforme & jeux</p>
+          <div className="mt-4 space-y-5">
+            <Field label="Tu joues plutôt sur...">
+              <div className="flex gap-3">
+                {[
+                  { value: "console", label: "Console" },
+                  { value: "mobile", label: "Mobile" },
+                  { value: "pc", label: "PC" },
+                ].map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPlateformePrincipale(p.value)}
+                    className={`flex-1 rounded-lg border px-3 py-2 font-body text-sm ${
+                      plateformePrincipale === p.value ? "border-orange bg-orange/10 text-orange" : "border-line text-white/60"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </Field>
-            <Field label="Plateforme">
-              <input
-                placeholder="PS5, PC..."
-                value={plateforme}
-                onChange={(e) => setPlateforme(e.target.value)}
-                className="input"
-              />
+
+            <Field label="Jeux auxquels tu peux compétir">
+              <div className="space-y-2">
+                {games.map((g) => (
+                  <div key={g.id}>
+                    <label className="flex items-center gap-3 font-body text-sm text-white/70">
+                      <input type="checkbox" checked={g.id in selectedGames} onChange={() => toggleGame(g.id)} />
+                      {g.nom}
+                    </label>
+                    {g.id in selectedGames && (
+                      <input
+                        placeholder={`Identifiant gaming sur ${g.nom} (optionnel)`}
+                        value={selectedGames[g.id]}
+                        onChange={(e) => setSelectedGames((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                        className="input mt-2"
+                      />
+                    )}
+                  </div>
+                ))}
+                {games.length === 0 && <p className="font-body text-xs text-white/40">Aucun jeu disponible.</p>}
+              </div>
             </Field>
-            <Field label="Identifiant gaming">
-              <input
-                value={identifiantGaming}
-                onChange={(e) => setIdentifiantGaming(e.target.value)}
-                className="input"
-              />
-            </Field>
+
             <Field label="Niveau déclaré">
               <input
                 placeholder="Division 2..."

@@ -15,6 +15,7 @@ export default function InscriptionEntreprisePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [acceptCgu, setAcceptCgu] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,11 +113,32 @@ export default function InscriptionEntreprisePage() {
           />
         </Field>
 
+        <label className="flex items-start gap-3 font-body text-sm text-white/70">
+          <input
+            required
+            type="checkbox"
+            checked={acceptCgu}
+            onChange={(e) => setAcceptCgu(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            J'accepte les{" "}
+            <Link href="/cgu" target="_blank" className="text-orange hover:underline">
+              conditions d'utilisation
+            </Link>{" "}
+            et la{" "}
+            <Link href="/confidentialite" target="_blank" className="text-orange hover:underline">
+              politique de confidentialité
+            </Link>
+            .
+          </span>
+        </label>
+
         {error && <p className="font-body text-sm text-red-400">{error}</p>}
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptCgu}
           className="w-full rounded-full bg-orange px-7 py-3 font-body font-semibold text-ink transition hover:bg-lime disabled:opacity-50"
         >
           {loading ? "Création en cours…" : "Créer le compte entreprise"}

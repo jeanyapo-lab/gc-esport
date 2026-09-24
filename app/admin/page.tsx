@@ -186,6 +186,32 @@ export default function AdminPage() {
     await loadData();
   }
 
+  async function handleDeletePlayer(player: Player) {
+    if (!confirm(`Supprimer définitivement ${player.pseudo} ? Cette action est irréversible.`)) return;
+    const { error } = await supabase.from("player_profiles").delete().eq("id", player.id);
+    if (error) {
+      alert(
+        "Suppression impossible : ce joueur a un historique lié (matchs, Draft, engagements...). " +
+          "Utilise plutôt \"Retirer\" pour désactiver son profil sans perdre les données."
+      );
+      return;
+    }
+    await loadData();
+  }
+
+  async function handleDeleteCompany(company: Company) {
+    if (!confirm(`Supprimer définitivement ${company.nom} ? Cette action est irréversible.`)) return;
+    const { error } = await supabase.from("companies").delete().eq("id", company.id);
+    if (error) {
+      alert(
+        "Suppression impossible : cette entreprise a un historique lié (équipes, Draft, engagements...). " +
+          "Utilise plutôt \"Retirer\" pour la désactiver sans perdre les données."
+      );
+      return;
+    }
+    await loadData();
+  }
+
   if (checking) {
     return <div className="px-6 py-24 text-center font-body text-white/50">Chargement…</div>;
   }
@@ -230,7 +256,8 @@ export default function AdminPage() {
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { href: "/admin/draft", label: "Draft", desc: "Éditions, ordre de sélection, validations" },
-          { href: "/admin/championnat", label: "Championnat", desc: "Matchs, scores, classement" },
+          { href: "/admin/championnat", label: "Championnat", desc: "Matchs, scores, classement (poules/ligue)" },
+          { href: "/admin/bracket", label: "Bracket", desc: "Tableau à élimination directe" },
           { href: "/admin/combine", label: "Combine", desc: "Sessions d'évaluation des joueurs" },
           { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts" },
           { href: "/admin/engagements", label: "Engagements", desc: "Documents et consentements" },
@@ -239,6 +266,7 @@ export default function AdminPage() {
           { href: "/admin/actualites", label: "Actualités", desc: "Articles publiés sur le site" },
           { href: "/admin/sondages", label: "Sondages", desc: "Fan Zone" },
           { href: "/admin/utilisateurs", label: "Utilisateurs", desc: "Rôles et permissions admin" },
+          { href: "/admin/messages", label: "Messages", desc: "Messages reçus via le formulaire de contact" },
         ].map((s) => (
           <Link
             key={s.href}
@@ -318,7 +346,9 @@ export default function AdminPage() {
               className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className="font-body font-semibold">{p.pseudo}</p>
+                <Link href={`/admin/joueurs/${p.id}`} className="font-body font-semibold hover:text-orange hover:underline">
+                  {p.pseudo}
+                </Link>
                 <p className="font-body text-sm text-white/50">{p.ville || "Ville non renseignée"}</p>
                 <p className="mt-1 font-body text-xs text-lime">
                   {playerStatutLabel[p.statut] ?? p.statut}
@@ -354,6 +384,20 @@ export default function AdminPage() {
                     Refuser
                   </button>
                 )}
+                {p.statut !== "retire" && (
+                  <button
+                    onClick={() => updatePlayerStatut(p, "retire")}
+                    className="rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/50 hover:border-white/50"
+                  >
+                    Retirer
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeletePlayer(p)}
+                  className="rounded-full border border-white/10 px-4 py-2 font-body text-xs text-white/30 hover:border-orange hover:text-orange"
+                >
+                  Supprimer
+                </button>
               </div>
             </div>
           ))}
@@ -371,7 +415,9 @@ export default function AdminPage() {
               className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className="font-body font-semibold">{c.nom}</p>
+                <Link href={`/admin/entreprises/${c.id}`} className="font-body font-semibold hover:text-orange hover:underline">
+                  {c.nom}
+                </Link>
                 <p className="font-body text-sm text-white/50">
                   {c.secteur_activite || "Secteur non renseigné"}
                 </p>
@@ -396,6 +442,12 @@ export default function AdminPage() {
                     Refuser
                   </button>
                 )}
+                <button
+                  onClick={() => handleDeleteCompany(c)}
+                  className="rounded-full border border-white/10 px-4 py-2 font-body text-xs text-white/30 hover:border-orange hover:text-orange"
+                >
+                  Supprimer
+                </button>
               </div>
             </div>
           ))}

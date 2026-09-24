@@ -78,7 +78,12 @@ export default function ConnexionPage() {
           </div>
         </div>
         <div>
-          <label className="font-body text-sm text-white/70">Mot de passe</label>
+          <div className="flex items-center justify-between">
+            <label className="font-body text-sm text-white/70">Mot de passe</label>
+            <Link href="/mot-de-passe-oublie" className="font-body text-xs text-white/40 hover:text-orange">
+              Mot de passe oublié ?
+            </Link>
+          </div>
           <div className="mt-2">
             <input
               required

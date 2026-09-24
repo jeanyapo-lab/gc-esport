@@ -43,6 +43,11 @@ export default function AdminCompetitionsPage() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [editions, setEditions] = useState<Edition[]>([]);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
+  const [editingCompetitionId, setEditingCompetitionId] = useState<string | null>(null);
+  const [editNom, setEditNom] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editFormat, setEditFormat] = useState("poules");
+  const [editPlacesMax, setEditPlacesMax] = useState("");
 
   // Formulaire nouveau jeu
   const [nouveauJeu, setNouveauJeu] = useState("");
@@ -104,6 +109,24 @@ export default function AdminCompetitionsPage() {
     setEditions(editionsData ?? []);
   }
 
+  async function handleToggleGameActif(g: Game) {
+    await supabase.from("games").update({ actif: !g.actif }).eq("id", g.id);
+    await loadAll();
+  }
+
+  async function handleDeleteGame(g: Game) {
+    if (!confirm(`Supprimer définitivement "${g.nom}" ?`)) return;
+    const { error } = await supabase.from("games").delete().eq("id", g.id);
+    if (error) {
+      alert(
+        "Suppression impossible : ce jeu est utilisé par des compétitions ou des profils joueurs. " +
+          "Utilise plutôt \"Désactiver\" pour le masquer sans perdre les données."
+      );
+      return;
+    }
+    await loadAll();
+  }
+
   async function handleCreateGame(e: React.FormEvent) {
     e.preventDefault();
     if (!nouveauJeu) return;
@@ -134,6 +157,45 @@ export default function AdminCompetitionsPage() {
     await loadAll();
   }
 
+  function openEdit(c: Competition) {
+    setEditingCompetitionId(c.id);
+    setEditNom(c.nom);
+    setEditDesc(c.description ?? "");
+    setEditFormat(c.format);
+    setEditPlacesMax(c.places_max ? String(c.places_max) : "");
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingCompetitionId) return;
+    await supabase
+      .from("competitions")
+      .update({
+        nom: editNom,
+        description: editDesc || null,
+        format: editFormat,
+        places_max: editPlacesMax ? Number(editPlacesMax) : null,
+      })
+      .eq("id", editingCompetitionId);
+    setEditingCompetitionId(null);
+    await loadAll();
+  }
+
+  async function handleDeleteCompetition(c: Competition) {
+    if (
+      !confirm(
+        `Supprimer définitivement "${c.nom}" ? Cela effacera aussi TOUTES ses éditions, équipes, matchs et données de Draft. Cette action est irréversible.`
+      )
+    )
+      return;
+    const { error } = await supabase.from("competitions").delete().eq("id", c.id);
+    if (error) {
+      alert("Erreur lors de la suppression : " + error.message);
+      return;
+    }
+    await loadAll();
+  }
+
   async function handleCreateEdition(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedCompetitionId || !nomEdition) return;
@@ -156,6 +218,21 @@ export default function AdminCompetitionsPage() {
 
   async function handleUpdateEditionStatut(id: string, statut: string) {
     await supabase.from("editions").update({ statut }).eq("id", id);
+    await loadAll();
+  }
+
+  async function handleDeleteEdition(ed: Edition) {
+    if (
+      !confirm(
+        `Supprimer l'édition "${ed.nom}" ? Cela effacera aussi ses équipes, matchs et données de Draft. Irréversible.`
+      )
+    )
+      return;
+    const { error } = await supabase.from("editions").delete().eq("id", ed.id);
+    if (error) {
+      alert("Erreur lors de la suppression : " + error.message);
+      return;
+    }
     await loadAll();
   }
 
@@ -185,12 +262,27 @@ export default function AdminCompetitionsPage() {
       {/* Jeux */}
       <section className="mt-10 rounded-2xl border border-line bg-panel p-6">
         <p className="font-display text-lg text-lime">Jeux / disciplines</p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 space-y-2">
           {games.map((g) => (
-            <span key={g.id} className="rounded-full border border-white/20 px-3 py-1 font-body text-xs">
-              {g.nom}
-            </span>
+            <div key={g.id} className="flex items-center justify-between rounded-lg border border-line px-4 py-2">
+              <span className={`font-body text-sm ${g.actif ? "" : "text-white/30 line-through"}`}>{g.nom}</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleToggleGameActif(g)}
+                  className={`rounded-full px-3 py-1 font-body text-xs ${g.actif ? "border border-white/20 text-white/60" : "bg-lime text-ink"}`}
+                >
+                  {g.actif ? "Désactiver" : "Réactiver"}
+                </button>
+                <button
+                  onClick={() => handleDeleteGame(g)}
+                  className="rounded-full border border-white/10 px-3 py-1 font-body text-xs text-white/30 hover:border-orange hover:text-orange"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
           ))}
+          {games.length === 0 && <p className="font-body text-xs text-white/40">Aucun jeu créé.</p>}
         </div>
         <form onSubmit={handleCreateGame} className="mt-4 flex gap-3">
           <input
@@ -262,12 +354,24 @@ export default function AdminCompetitionsPage() {
                     {gameNom(c.game_id)} · {c.format} {c.places_max ? `· ${c.places_max} places max` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setSelectedCompetitionId(selectedCompetitionId === c.id ? null : c.id)}
                     className="rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50"
                   >
                     Éditions
+                  </button>
+                  <button
+                    onClick={() => (editingCompetitionId === c.id ? setEditingCompetitionId(null) : openEdit(c))}
+                    className="rounded-full border border-white/20 px-4 py-2 font-body text-xs hover:border-white/50"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCompetition(c)}
+                    className="rounded-full border border-white/10 px-4 py-2 font-body text-xs text-white/30 hover:border-orange hover:text-orange"
+                  >
+                    Supprimer
                   </button>
                   <select
                     value={c.statut}
@@ -283,6 +387,39 @@ export default function AdminCompetitionsPage() {
                 </div>
               </div>
 
+              {editingCompetitionId === c.id && (
+                <form onSubmit={handleSaveEdit} className="mt-6 grid gap-3 border-t border-line pt-6 sm:grid-cols-2">
+                  <input value={editNom} onChange={(e) => setEditNom(e.target.value)} className="input" required />
+                  <select value={editFormat} onChange={(e) => setEditFormat(e.target.value)} className="input">
+                    <option value="poules">Poules</option>
+                    <option value="elimination_directe">Élimination directe</option>
+                    <option value="ligue">Ligue</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Places max (vide = illimité)"
+                    value={editPlacesMax}
+                    onChange={(e) => setEditPlacesMax(e.target.value)}
+                    className="input"
+                  />
+                  <textarea
+                    placeholder="Description"
+                    rows={2}
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    className="input sm:col-span-2"
+                  />
+                  <div className="sm:col-span-2 flex gap-3">
+                    <button type="submit" className="rounded-full bg-lime px-5 py-2 font-body text-xs font-semibold text-ink">
+                      Enregistrer
+                    </button>
+                    <button type="button" onClick={() => setEditingCompetitionId(null)} className="rounded-full border border-white/20 px-5 py-2 font-body text-xs text-white/70">
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
+
               {selectedCompetitionId === c.id && (
                 <div className="mt-6 space-y-4 border-t border-line pt-6">
                   <p className="font-body text-sm font-semibold text-white/80">Éditions / saisons</p>
@@ -292,17 +429,25 @@ export default function AdminCompetitionsPage() {
                       .map((ed) => (
                         <div key={ed.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-4 py-2 font-body text-sm">
                           <span>{ed.nom}</span>
-                          <select
-                            value={ed.statut}
-                            onChange={(e) => handleUpdateEditionStatut(ed.id, e.target.value)}
-                            className="input w-auto py-1 text-xs"
-                          >
-                            {Object.entries(statutLabel).map(([k, label]) => (
-                              <option key={k} value={k}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={ed.statut}
+                              onChange={(e) => handleUpdateEditionStatut(ed.id, e.target.value)}
+                              className="input w-auto py-1 text-xs"
+                            >
+                              {Object.entries(statutLabel).map(([k, label]) => (
+                                <option key={k} value={k}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => handleDeleteEdition(ed)}
+                              className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/30 hover:border-orange hover:text-orange"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
                         </div>
                       ))}
                     {editions.filter((ed) => ed.competition_id === c.id).length === 0 && (

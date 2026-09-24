@@ -12,6 +12,7 @@ export default async function JoueursPage({
     .from("player_profiles")
     .select("id, pseudo, ville, niveau_declare, photo_url")
     .eq("profil_public", true)
+    .neq("statut", "retire")
     .order("created_at", { ascending: false });
 
   if (searchParams.q) query = query.ilike("pseudo", `%${searchParams.q}%`);

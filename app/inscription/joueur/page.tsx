@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+
+type Game = { id: string; nom: string };
+
+const plateformes = [
+  { value: "console", label: "Console" },
+  { value: "mobile", label: "Mobile" },
+  { value: "pc", label: "PC" },
+];
 
 export default function InscriptionJoueurPage() {
   const router = useRouter();
@@ -12,9 +20,30 @@ export default function InscriptionJoueurPage() {
   const [password, setPassword] = useState("");
   const [ville, setVille] = useState("");
   const [dateNaissance, setDateNaissance] = useState("");
+  const [plateformePrincipale, setPlateformePrincipale] = useState("console");
+  const [games, setGames] = useState<Game[]>([]);
+  const [selectedGames, setSelectedGames] = useState<Record<string, string>>({}); // game_id -> identifiant_gaming
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [acceptCgu, setAcceptCgu] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("games")
+      .select("id, nom")
+      .eq("actif", true)
+      .then(({ data }) => setGames(data ?? []));
+  }, []);
+
+  function toggleGame(gameId: string) {
+    setSelectedGames((prev) => {
+      const next = { ...prev };
+      if (gameId in next) delete next[gameId];
+      else next[gameId] = "";
+      return next;
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +59,11 @@ export default function InscriptionJoueurPage() {
           pseudo,
           ville,
           date_naissance: dateNaissance,
+          plateforme_principale: plateformePrincipale,
+          games: Object.entries(selectedGames).map(([game_id, identifiant_gaming]) => ({
+            game_id,
+            identifiant_gaming,
+          })),
         },
       },
     });
@@ -93,6 +127,45 @@ export default function InscriptionJoueurPage() {
             className="input"
           />
         </Field>
+        <Field label="Tu joues plutôt sur...">
+          <div className="flex gap-3">
+            {plateformes.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setPlateformePrincipale(p.value)}
+                className={`flex-1 rounded-lg border px-3 py-2 font-body text-sm ${
+                  plateformePrincipale === p.value ? "border-orange bg-orange/10 text-orange" : "border-line text-white/60"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Jeux auxquels tu peux compétir">
+          <div className="space-y-2">
+            {games.map((g) => (
+              <div key={g.id}>
+                <label className="flex items-center gap-3 font-body text-sm text-white/70">
+                  <input type="checkbox" checked={g.id in selectedGames} onChange={() => toggleGame(g.id)} />
+                  {g.nom}
+                </label>
+                {g.id in selectedGames && (
+                  <input
+                    placeholder={`Identifiant gaming sur ${g.nom} (optionnel)`}
+                    value={selectedGames[g.id]}
+                    onChange={(e) => setSelectedGames((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                    className="input mt-2"
+                  />
+                )}
+              </div>
+            ))}
+            {games.length === 0 && <p className="font-body text-xs text-white/40">Aucun jeu disponible pour le moment.</p>}
+          </div>
+        </Field>
+
         <Field label="E-mail">
           <input
             required
@@ -113,11 +186,32 @@ export default function InscriptionJoueurPage() {
           />
         </Field>
 
+        <label className="flex items-start gap-3 font-body text-sm text-white/70">
+          <input
+            required
+            type="checkbox"
+            checked={acceptCgu}
+            onChange={(e) => setAcceptCgu(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            J'accepte les{" "}
+            <Link href="/cgu" target="_blank" className="text-orange hover:underline">
+              conditions d'utilisation
+            </Link>{" "}
+            et la{" "}
+            <Link href="/confidentialite" target="_blank" className="text-orange hover:underline">
+              politique de confidentialité
+            </Link>
+            .
+          </span>
+        </label>
+
         {error && <p className="font-body text-sm text-red-400">{error}</p>}
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptCgu}
           className="w-full rounded-full bg-orange px-7 py-3 font-body font-semibold text-ink transition hover:bg-lime disabled:opacity-50"
         >
           {loading ? "Création en cours…" : "Créer mon compte joueur"}

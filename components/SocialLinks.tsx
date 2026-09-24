@@ -4,7 +4,7 @@ type Reseaux = {
   youtube?: string;
   instagram?: string;
   discord?: string;
-} | null;
+} | null | undefined;
 
 const PLATEFORMES: { key: keyof NonNullable<Reseaux>; label: string }[] = [
   { key: "twitter", label: "X" },
@@ -14,7 +14,7 @@ const PLATEFORMES: { key: keyof NonNullable<Reseaux>; label: string }[] = [
   { key: "discord", label: "DC" },
 ];
 
-export default function SocialLinks({ reseaux }: { reseaux: Reseaux }) {
+export default function SocialLinks({ reseaux }: { reseaux?: Reseaux }) {
   return (
     <div className="flex gap-2">
       {PLATEFORMES.map((p) => {

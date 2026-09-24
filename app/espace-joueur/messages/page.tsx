@@ -1,8 +1,7 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -12,7 +11,7 @@ type Conversation = { id: string; company_id: string };
 type Company = { id: string; nom: string; logo_url: string | null };
 type Message = { id: string; sender_id: string; contenu: string; created_at: string };
 
-export default function JoueurMessagesPage() {
+function JoueurMessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -163,5 +162,13 @@ export default function JoueurMessagesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function JoueurMessagesPage() {
+  return (
+    <Suspense fallback={<div className="px-6 py-24 text-center font-body text-white/50">Chargement…</div>}>
+      <JoueurMessagesContent />
+    </Suspense>
   );
 }

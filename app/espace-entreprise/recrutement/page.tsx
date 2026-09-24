@@ -1,8 +1,7 @@
 "use client";
 
-export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -49,7 +48,7 @@ const offerStatutLabel: Record<string, string> = {
   annulee: "Annulée",
 };
 
-export default function RecrutementEntreprisePage() {
+function RecrutementEntrepriseContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedPlayerId = searchParams.get("player");
@@ -550,5 +549,13 @@ function PlayerScoutCard({
         </button>
       </div>
     </div>
+  );
+}
+
+export default function RecrutementEntreprisePage() {
+  return (
+    <Suspense fallback={<div className="px-6 py-24 text-center font-body text-white/50">Chargement…</div>}>
+      <RecrutementEntrepriseContent />
+    </Suspense>
   );
 }

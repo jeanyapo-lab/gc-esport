@@ -160,7 +160,7 @@ export default function AdminJoueurDetailPage() {
   async function handleAddEvaluation(e: React.FormEvent) {
     e.preventDefault();
     setSavingEval(true);
-    await supabase.from("evaluations").insert({
+    const { error } = await supabase.from("evaluations").insert({
       player_id: playerId,
       precision_passes: precisionPasses ? Number(precisionPasses) : null,
       tirs_cadres: tirsCadres ? Number(tirsCadres) : null,
@@ -172,13 +172,17 @@ export default function AdminJoueurDetailPage() {
       observations,
       evalue_par: userId,
     });
+    setSavingEval(false);
+    if (error) {
+      alert("L'évaluation n'a pas pu être enregistrée : " + error.message);
+      return;
+    }
     setPrecisionPasses("");
     setTirsCadres("");
     setTirsTentes("");
     setDribblesReussisPct("");
     setPassesCles("");
     setObservations("");
-    setSavingEval(false);
     await loadAll();
   }
 

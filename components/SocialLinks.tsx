@@ -1,3 +1,5 @@
+import { normalizeUrl } from "@/lib/url";
+
 type Reseaux = {
   twitter?: string;
   twitch?: string;
@@ -18,7 +20,8 @@ export default function SocialLinks({ reseaux }: { reseaux?: Reseaux }) {
   return (
     <div className="flex gap-2">
       {PLATEFORMES.map((p) => {
-        const url = reseaux?.[p.key];
+        const rawUrl = reseaux?.[p.key];
+        const url = rawUrl ? normalizeUrl(rawUrl) : "";
         if (url) {
           return (
             <a

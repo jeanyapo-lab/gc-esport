@@ -211,6 +211,20 @@ export default function AdminDraftPage() {
     if (selectedDraftId === draftId) await loadDraftDetail(draftId);
   }
 
+  async function handleDeleteDraft(draftId: string) {
+    if (!confirm("Supprimer définitivement cette édition du Draft ? Toutes les sélections et l'ordre associés seront aussi supprimés. Cette action est irréversible.")) return;
+    await supabase.from("draft_picks").delete().eq("draft_edition_id", draftId);
+    await supabase.from("draft_order").delete().eq("draft_edition_id", draftId);
+    const { error } = await supabase.from("draft_editions").delete().eq("id", draftId);
+    if (error) {
+      alert("Erreur : " + error.message);
+      return;
+    }
+    await logAction(userId, "suppression_draft", "draft_editions", draftId);
+    if (selectedDraftId === draftId) setSelectedDraftId(null);
+    await loadAll();
+  }
+
   async function handleUpdateEffectif(orderRowId: string, effectif: number) {
     await supabase.from("draft_order").update({ effectif_recherche: effectif }).eq("id", orderRowId);
     if (selectedDraftId) await loadDraftDetail(selectedDraftId);
@@ -425,6 +439,12 @@ export default function AdminDraftPage() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => handleDeleteDraft(d.id)}
+                    className="rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/50 hover:border-red-500 hover:text-red-500"
+                  >
+                    Supprimer
+                  </button>
                 </div>
               </div>
 

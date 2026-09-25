@@ -46,13 +46,17 @@ function EntrepriseMessagesContent() {
     }
     setCompanyId(rep.company_id);
 
+    await loadConversations(rep.company_id);
+
     const playerIdParam = searchParams.get("player");
     if (playerIdParam) {
       const convId = await getOrCreateConversation(playerIdParam, rep.company_id);
-      if (convId) setSelectedConvId(convId);
+      if (convId) {
+        await loadConversations(rep.company_id);
+        await openConversation(convId, sessionData.session.user.id);
+      }
     }
 
-    await loadConversations(rep.company_id);
     setLoading(false);
   }
 
@@ -69,11 +73,14 @@ function EntrepriseMessagesContent() {
     }
   }
 
-  async function openConversation(convId: string) {
+  async function openConversation(convId: string, uidParam?: string) {
     setSelectedConvId(convId);
+    const uid = uidParam ?? userId;
     const { data } = await supabase.from("messages").select("id, sender_id, contenu, created_at").eq("conversation_id", convId).order("created_at", { ascending: true });
     setMessages(data ?? []);
-    await supabase.from("messages").update({ lu: true }).eq("conversation_id", convId).neq("sender_id", userId ?? "");
+    if (uid) {
+      await supabase.from("messages").update({ lu: true }).eq("conversation_id", convId).neq("sender_id", uid);
+    }
   }
 
   async function handleSend(e: React.FormEvent) {

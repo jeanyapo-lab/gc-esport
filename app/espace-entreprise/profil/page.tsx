@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { normalizeUrl } from "@/lib/url";
 
 export default function ProfilEntreprisePage() {
   const router = useRouter();
@@ -112,12 +113,16 @@ export default function ProfilEntreprisePage() {
         nom,
         secteur_activite: secteurActivite,
         presentation,
-        site_web: siteWeb,
+        site_web: siteWeb ? normalizeUrl(siteWeb) : "",
         ville,
         contact_email: contactEmail,
         contact_telephone: contactTelephone,
         logo_url: logoUrl,
-        reseaux_sociaux: { facebook, instagram, linkedin },
+        reseaux_sociaux: {
+          facebook: facebook ? normalizeUrl(facebook) : "",
+          instagram: instagram ? normalizeUrl(instagram) : "",
+          linkedin: linkedin ? normalizeUrl(linkedin) : "",
+        },
       })
       .eq("id", companyId);
 

@@ -48,8 +48,13 @@ export default function ShortlistPage() {
   }
 
   async function handleSaveNotes(entryId: string) {
+    if (!(entryId in notesDraft)) return; // rien de modifié, on ne touche pas à la note existante
     const notes = notesDraft[entryId] ?? "";
-    await supabase.from("shortlist_entries").update({ notes }).eq("id", entryId);
+    const { error } = await supabase.from("shortlist_entries").update({ notes }).eq("id", entryId);
+    if (error) {
+      alert("Erreur lors de l'enregistrement de la note : " + error.message);
+      return;
+    }
     await load();
   }
 

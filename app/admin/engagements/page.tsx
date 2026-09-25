@@ -198,6 +198,18 @@ export default function AdminEngagementsPage() {
     await loadAll();
   }
 
+  async function handleDeleteEngagement(id: string) {
+    if (!confirm("Supprimer définitivement cet engagement ? Les documents déposés associés seront aussi retirés. Cette action est irréversible.")) return;
+    await supabase.from("documents").delete().eq("engagement_id", id);
+    const { error } = await supabase.from("engagements").delete().eq("id", id);
+    if (error) {
+      alert("Erreur : " + error.message);
+      return;
+    }
+    await logAction(userId, "suppression_engagement", "engagements", id);
+    await loadAll();
+  }
+
   async function handleViewDoc(path: string) {
     const { data } = await supabase.storage.from("documents").createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
@@ -317,6 +329,12 @@ export default function AdminEngagementsPage() {
                       Refuser
                     </button>
                   )}
+                  <button
+                    onClick={() => handleDeleteEngagement(e.id)}
+                    className="rounded-full border border-white/20 px-3 py-1 font-body text-xs text-white/50 hover:border-red-500 hover:text-red-500"
+                  >
+                    Supprimer
+                  </button>
                 </div>
               </div>
             </div>

@@ -8,6 +8,7 @@ import { getPlayerStatsSummaries, getPlayerCardStats, type StatsSummary, type Ca
 import { notify, getUserIdsFromCompanyId } from "@/lib/notify";
 import { downloadCSV } from "@/lib/csv";
 import { logAction } from "@/lib/auditLog";
+import { getLastViewed } from "@/lib/adminViews";
 
 type Player = {
   id: string;
@@ -64,7 +65,7 @@ export default function AdminPage() {
     equipesConstituees: 0,
     competitionsEnCours: 0,
   });
-  const [badges, setBadges] = useState({ messages: 0, recrutement: 0, engagements: 0, signalements: 0, sondages: 0 });
+  const [badges, setBadges] = useState({ messages: 0, recrutement: 0, engagements: 0, signalements: 0, sondages: 0, ruptures: 0 });
 
   useEffect(() => {
     async function init() {
@@ -99,13 +100,14 @@ export default function AdminPage() {
       }
 
       setAuthorized(true);
-      await loadData();
+      await loadData(uid);
       setChecking(false);
     }
     init();
   }, [router]);
 
-  async function loadData() {
+  async function loadData(uidParam?: string) {
+    const uid = uidParam ?? userId;
     const { data: playersData } = await supabase
       .from("player_profiles")
       .select("id, pseudo, ville, statut, created_at, user_id")
@@ -154,18 +156,24 @@ export default function AdminPage() {
       competitionsEnCours: competitionsEnCours ?? 0,
     });
 
-    const [{ count: messagesNonLus }, { count: recrutementBloques }, { data: engagementsEnAttente }, { count: signalementsEnAttente }, { data: pollsActifs }] = await Promise.all([
+    const [{ count: messagesNonLus }, { count: recrutementBloques }, { data: engagementsEnAttente }, { count: signalementsEnAttente }, { data: pollsActifs }, { count: ruptureEnAttente }] = await Promise.all([
       supabase.from("contact_messages").select("*", { count: "exact", head: true }).eq("lu", false),
       supabase.from("recruitment_offers").select("*", { count: "exact", head: true }).eq("statut", "en_attente_validation_gcesport"),
       supabase.from("engagements").select("id").eq("statut", "en_attente_signature"),
       supabase.from("message_reports").select("*", { count: "exact", head: true }).eq("statut", "en_attente"),
       supabase.from("polls").select("id").eq("actif", true),
+      supabase.from("contract_terminations").select("*", { count: "exact", head: true }).eq("statut", "en_attente_gcesport"),
     ]);
 
     let votesSondages = 0;
     const pollIds = (pollsActifs ?? []).map((p) => p.id);
     if (pollIds.length > 0) {
-      const { count } = await supabase.from("poll_votes").select("*", { count: "exact", head: true }).in("poll_id", pollIds);
+      const lastViewedSondages = await getLastViewed(uid ?? null, "sondages");
+      const { count } = await supabase
+        .from("poll_votes")
+        .select("*", { count: "exact", head: true })
+        .in("poll_id", pollIds)
+        .gt("created_at", lastViewedSondages);
       votesSondages = count ?? 0;
     }
 
@@ -184,6 +192,7 @@ export default function AdminPage() {
       engagements: engagementsAvecDocument,
       signalements: signalementsEnAttente ?? 0,
       sondages: votesSondages,
+      ruptures: ruptureEnAttente ?? 0,
     });
   }
 
@@ -297,6 +306,7 @@ export default function AdminPage() {
           { href: "/admin/bracket", label: "Bracket", desc: "Tableau à élimination directe" },
           { href: "/admin/combine", label: "Combine", desc: "Sessions d'évaluation des joueurs" },
           { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts", badge: badges.recrutement },
+          { href: "/admin/ruptures", label: "Ruptures de contrat", desc: "Arbitrage entreprise ↔ joueur", badge: badges.ruptures },
           { href: "/admin/engagements", label: "Engagements", desc: "Documents et consentements", badge: badges.engagements },
           { href: "/admin/competitions", label: "Compétitions", desc: "Jeux, compétitions, éditions" },
           { href: "/admin/partenaires", label: "Partenaires", desc: "Sponsors de GC ESPORT" },

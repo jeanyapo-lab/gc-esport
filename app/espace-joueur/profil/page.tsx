@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { normalizeUrl } from "@/lib/url";
 
 type Game = { id: string; nom: string };
 
@@ -153,7 +154,13 @@ export default function ProfilJoueurPage() {
         photo_url: photoUrl || null,
         plateforme_principale: plateformePrincipale,
         profil_public: profilPublic,
-        reseaux_sociaux: { twitter, twitch, youtube, instagram, discord },
+        reseaux_sociaux: {
+          twitter: twitter ? normalizeUrl(twitter) : "",
+          twitch: twitch ? normalizeUrl(twitch) : "",
+          youtube: youtube ? normalizeUrl(youtube) : "",
+          instagram: instagram ? normalizeUrl(instagram) : "",
+          discord: discord ? normalizeUrl(discord) : "",
+        },
         statut: nouveauStatut,
       })
       .eq("id", playerId);

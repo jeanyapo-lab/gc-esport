@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummary, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
 import PlayerCard from "@/components/PlayerCard";
+import { notify, getAdminUserIds } from "@/lib/notify";
 
 type PlayerProfile = {
   id: string;
@@ -13,6 +14,13 @@ type PlayerProfile = {
   ville: string | null;
   statut: string;
   niveau_declare: string | null;
+};
+
+type Termination = {
+  id: string;
+  motif: string;
+  created_at: string;
+  company_id: string;
 };
 
 const statutLabel: Record<string, string> = {
@@ -32,6 +40,11 @@ export default function EspaceJoueurPage() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [cardStats, setCardStats] = useState<CardStats | null>(null);
+  const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
+  const [terminations, setTerminations] = useState<Termination[]>([]);
+  const [respondedIds, setRespondedIds] = useState<string[]>([]);
+  const [reponseDraft, setReponseDraft] = useState<Record<string, string>>({});
+  const [sendingReponse, setSendingReponse] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -54,12 +67,57 @@ export default function EspaceJoueurPage() {
         setStats(statsData);
         const cardStatsData = await getPlayerCardStats(data.id);
         setCardStats(cardStatsData);
+
+        const { data: terminationsData } = await supabase
+          .from("contract_terminations")
+          .select("id, motif, created_at, company_id")
+          .eq("player_id", data.id)
+          .eq("statut", "en_attente_gcesport");
+        setTerminations(terminationsData ?? []);
+
+        const companyIds = Array.from(new Set((terminationsData ?? []).map((t) => t.company_id)));
+        if (companyIds.length > 0) {
+          const { data: companiesData } = await supabase.from("companies").select("id, nom").in("id", companyIds);
+          const map: Record<string, string> = {};
+          (companiesData ?? []).forEach((c) => (map[c.id] = c.nom));
+          setCompaniesMap(map);
+        }
+
+        const terminationIds = (terminationsData ?? []).map((t) => t.id);
+        if (terminationIds.length > 0) {
+          const { data: responsesData } = await supabase
+            .from("contract_termination_responses")
+            .select("termination_id")
+            .in("termination_id", terminationIds);
+          setRespondedIds(Array.from(new Set((responsesData ?? []).map((r) => r.termination_id))));
+        }
       }
 
       setLoading(false);
     }
     load();
   }, [router]);
+
+  async function handleSendReponse(terminationId: string) {
+    const reponse = (reponseDraft[terminationId] ?? "").trim();
+    if (!reponse || !profile) return;
+    setSendingReponse(terminationId);
+    const { error } = await supabase.from("contract_termination_responses").insert({
+      termination_id: terminationId,
+      player_id: profile.id,
+      reponse,
+    });
+    setSendingReponse(null);
+    if (error) {
+      alert("Ta réponse n'a pas pu être envoyée : " + error.message);
+      return;
+    }
+    const adminIds = await getAdminUserIds();
+    for (const uid of adminIds) {
+      await notify(uid, "Droit de réponse — rupture de contrat", `${profile.pseudo} a répondu à une demande de rupture de contrat.`);
+    }
+    setRespondedIds((prev) => [...prev, terminationId]);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -88,6 +146,44 @@ export default function EspaceJoueurPage() {
           </button>
         </div>
       </div>
+
+      {terminations.length > 0 && (
+        <div className="mt-8 space-y-4">
+          {terminations.map((t) => (
+            <div key={t.id} className="rounded-2xl border border-orange/50 bg-orange/5 p-6">
+              <p className="font-display text-lg text-orange">Demande de rupture de contrat</p>
+              <p className="mt-2 font-body text-sm text-white/70">
+                {companiesMap[t.company_id] ?? "Une entreprise"} souhaite mettre fin à votre contrat. Motif indiqué :
+              </p>
+              <p className="mt-1 font-body text-sm italic text-white/60">« {t.motif} »</p>
+              <p className="mt-3 font-body text-xs text-white/50">
+                C'est GC ESPORT qui validera ou annulera cette rupture. Tu peux apporter ta version des faits
+                ci-dessous — elle sera transmise directement à l'équipe GC ESPORT.
+              </p>
+              {respondedIds.includes(t.id) ? (
+                <p className="mt-3 font-body text-xs text-lime">✓ Ta réponse a été envoyée à GC ESPORT.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    placeholder="Ta réponse à l'attention de GC ESPORT..."
+                    rows={3}
+                    value={reponseDraft[t.id] ?? ""}
+                    onChange={(e) => setReponseDraft((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                    className="input"
+                  />
+                  <button
+                    onClick={() => handleSendReponse(t.id)}
+                    disabled={sendingReponse === t.id}
+                    className="rounded-full bg-orange px-4 py-2 font-body text-xs font-semibold text-ink hover:bg-lime disabled:opacity-50"
+                  >
+                    {sendingReponse === t.id ? "Envoi…" : "Envoyer à GC ESPORT"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mt-12 grid gap-6 sm:grid-cols-2">
         <div className="rounded-2xl border border-line bg-panel p-6">

@@ -144,11 +144,15 @@ export default function AdminCombinePage() {
     e.preventDefault();
     if (!editionId || !nomSession) return;
 
-    await supabase.from("combine_sessions").insert({
+    const { error } = await supabase.from("combine_sessions").insert({
       edition_id: editionId,
       nom: nomSession,
       date_session: dateSession || null,
     });
+    if (error) {
+      alert("La session n'a pas pu être créée : " + error.message);
+      return;
+    }
 
     setNomSession("");
     setDateSession("");
@@ -172,12 +176,16 @@ export default function AdminCombinePage() {
       return;
     }
 
-    await supabase.from("matches").insert({
+    const { error } = await supabase.from("matches").insert({
       combine_session_id: selectedSessionId,
       joueur1_id: joueur1Id,
       joueur2_id: joueur2Id,
       valide: false,
     });
+    if (error) {
+      alert("Le match n'a pas pu être programmé : " + error.message);
+      return;
+    }
 
     setJoueur1Id("");
     setJoueur2Id("");
@@ -191,10 +199,17 @@ export default function AdminCombinePage() {
     const s2 = parseInt(edit.s2, 10);
     if (isNaN(s1) || isNaN(s2)) return;
 
-    await supabase.from("matches").update({ score_joueur1: s1, score_joueur2: s2, valide: true }).eq("id", match.id);
+    const { error: matchError } = await supabase
+      .from("matches")
+      .update({ score_joueur1: s1, score_joueur2: s2, valide: true })
+      .eq("id", match.id);
+    if (matchError) {
+      alert("Le score n'a pas pu être validé : " + matchError.message);
+      return;
+    }
 
     // Enregistre les statistiques vérifiées pour les deux joueurs
-    await supabase.from("player_stats").insert([
+    const { error: statsError } = await supabase.from("player_stats").insert([
       {
         player_id: match.joueur1_id,
         match_id: match.id,
@@ -218,6 +233,10 @@ export default function AdminCombinePage() {
         verifie_par: userId,
       },
     ]);
+    if (statsError) {
+      alert("Les statistiques n'ont pas pu être enregistrées : " + statsError.message);
+      return;
+    }
 
     await loadSessionData(selectedSessionId);
   }
@@ -226,7 +245,7 @@ export default function AdminCombinePage() {
     e.preventDefault();
     if (!evalPlayerId) return;
 
-    await supabase.from("evaluations").insert({
+    const { error } = await supabase.from("evaluations").insert({
       player_id: evalPlayerId,
       combine_session_id: selectedSessionId,
       precision_passes: precisionPasses ? Number(precisionPasses) : null,
@@ -239,6 +258,10 @@ export default function AdminCombinePage() {
       observations,
       evalue_par: userId,
     });
+    if (error) {
+      alert("L'évaluation n'a pas pu être enregistrée : " + error.message);
+      return;
+    }
 
     setEvalPlayerId("");
     setObservations("");

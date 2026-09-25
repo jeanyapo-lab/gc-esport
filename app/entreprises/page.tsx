@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { normalizeUrl } from "@/lib/url";
 
 export const revalidate = 60;
 
@@ -22,7 +23,7 @@ export default async function EntreprisesPage() {
           entreprises.map((e) => (
             <a
               key={e.id}
-              href={e.site_web || undefined}
+              href={e.site_web ? normalizeUrl(e.site_web) : undefined}
               target={e.site_web ? "_blank" : undefined}
               rel="noopener noreferrer"
               className="rounded-2xl border border-line bg-panel p-8 transition hover:border-orange"

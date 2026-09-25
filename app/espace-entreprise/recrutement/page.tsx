@@ -255,7 +255,7 @@ function RecrutementEntrepriseContent() {
     if (effectifActuel >= ROSTER_MAX) return;
 
     setSubmitting(true);
-    await supabase.from("recruitment_offers").insert({
+    const { error } = await supabase.from("recruitment_offers").insert({
       type: formType,
       player_id: formPlayerId,
       company_id: myCompanyId,
@@ -267,6 +267,10 @@ function RecrutementEntrepriseContent() {
       statut: "en_attente_reponse_joueur",
     });
     setSubmitting(false);
+    if (error) {
+      alert(error.message);
+      return;
+    }
     setFormPlayerId(null);
 
     const uid = await getUserIdFromPlayerId(formPlayerId);

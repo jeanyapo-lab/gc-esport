@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { resolveActorNames } from "@/lib/actors";
 
 type LogEntry = {
   id: string;
@@ -33,6 +34,7 @@ export default function AdminAuditPage() {
   const [authorized, setAuthorized] = useState(false);
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [filtreEntite, setFiltreEntite] = useState("");
+  const [actorNames, setActorNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function init() {
@@ -56,6 +58,7 @@ export default function AdminAuditPage() {
         .order("created_at", { ascending: false })
         .limit(100);
       setEntries(data ?? []);
+      setActorNames(await resolveActorNames((data ?? []).map((e) => e.user_id)));
 
       setChecking(false);
     }
@@ -107,6 +110,9 @@ export default function AdminAuditPage() {
                 {new Date(entry.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
               </p>
             </div>
+            <p className="mt-1 font-body text-xs text-lime">
+              Par {entry.user_id ? actorNames[entry.user_id] ?? "…" : "Système"}
+            </p>
             {entry.details && (
               <p className="mt-1 font-body text-xs text-white/50">{JSON.stringify(entry.details)}</p>
             )}

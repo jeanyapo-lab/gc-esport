@@ -129,6 +129,17 @@ export default function AdminSondagesPage() {
     await loadAll();
   }
 
+  async function handleDeletePoll(poll: Poll) {
+    if (!confirm(`Supprimer définitivement le sondage « ${poll.question} » ? Tous les votes reçus seront aussi supprimés. Cette action est irréversible.`)) return;
+    const { error } = await supabase.from("polls").delete().eq("id", poll.id);
+    if (error) {
+      alert("Erreur lors de la suppression : " + error.message);
+      return;
+    }
+    if (expandedPoll === poll.id) setExpandedPoll(null);
+    await loadAll();
+  }
+
   if (checking) return <div className="px-6 py-24 text-center font-body text-white/50">Chargement…</div>;
   if (!authorized) return <div className="mx-auto max-w-lg px-6 py-32 text-center"><h1 className="font-display text-3xl text-orange">Accès refusé</h1></div>;
 
@@ -181,6 +192,12 @@ export default function AdminSondagesPage() {
                     className={`rounded-full px-4 py-2 font-body text-xs font-semibold ${p.actif ? "bg-lime text-ink" : "border border-white/20 text-white/70"}`}
                   >
                     {p.actif ? "Actif" : "Inactif"}
+                  </button>
+                  <button
+                    onClick={() => handleDeletePoll(p)}
+                    className="rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/50 hover:border-red-500 hover:text-red-500"
+                  >
+                    Supprimer
                   </button>
                 </div>
               </div>

@@ -304,6 +304,7 @@ export default function AdminPage() {
           { href: "/admin/draft", label: "Draft", desc: "Éditions, ordre de sélection, validations" },
           { href: "/admin/championnat", label: "Championnat", desc: "Matchs, scores, classement (poules/ligue)" },
           { href: "/admin/bracket", label: "Bracket", desc: "Tableau à élimination directe" },
+          { href: "/admin/palmares", label: "Palmarès", desc: "Attribuer les trophées de champion" },
           { href: "/admin/combine", label: "Combine", desc: "Sessions d'évaluation des joueurs" },
           { href: "/admin/recrutement", label: "Recrutement", desc: "Recrutements libres et transferts", badge: badges.recrutement },
           { href: "/admin/ruptures", label: "Ruptures de contrat", desc: "Arbitrage entreprise ↔ joueur", badge: badges.ruptures },

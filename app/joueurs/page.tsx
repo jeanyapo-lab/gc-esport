@@ -2,6 +2,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerCardStats, getOverallScore } from "@/lib/playerStats";
 import JoueurCTA from "@/components/JoueurCTA";
+import Reveal from "@/components/Reveal";
+import GlitchTitle from "@/components/GlitchTitle";
+import StatBar from "@/components/StatBar";
 
 export const revalidate = 60;
 
@@ -10,6 +13,13 @@ export default async function JoueursPage({
 }: {
   searchParams: { q?: string; ville?: string; niveau?: string };
 }) {
+  // Chaque champ est optionnel et indépendant : renseigner uniquement
+  // la ville (ou le niveau, ou le pseudo) suffit à filtrer — inutile
+  // de tout remplir en même temps.
+  const q = searchParams.q?.trim();
+  const ville = searchParams.ville?.trim();
+  const niveau = searchParams.niveau?.trim();
+
   let query = supabase
     .from("player_profiles")
     .select("id, pseudo, ville, niveau_declare, photo_url")
@@ -17,11 +27,12 @@ export default async function JoueursPage({
     .neq("statut", "retire")
     .order("created_at", { ascending: false });
 
-  if (searchParams.q) query = query.ilike("pseudo", `%${searchParams.q}%`);
-  if (searchParams.ville) query = query.ilike("ville", `%${searchParams.ville}%`);
-  if (searchParams.niveau) query = query.ilike("niveau_declare", `%${searchParams.niveau}%`);
+  if (q) query = query.ilike("pseudo", `%${q}%`);
+  if (ville) query = query.ilike("ville", `%${ville}%`);
+  if (niveau) query = query.ilike("niveau_declare", `%${niveau}%`);
 
   const { data: joueurs } = await query;
+  const filtreActif = Boolean(q || ville || niveau);
 
   const scoreEntries = await Promise.all(
     (joueurs ?? []).map(async (j) => [j.id, getOverallScore(await getPlayerCardStats(j.id))] as const)
@@ -30,7 +41,7 @@ export default async function JoueursPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-24">
-      <h1 className="font-display text-5xl">Joueurs</h1>
+      <h1 className="font-display text-5xl"><GlitchTitle text="Joueurs" /></h1>
       <p className="mt-4 max-w-xl font-body text-white/60">
         Les profils publics des joueurs inscrits sur GC ESPORT.
       </p>
@@ -43,11 +54,23 @@ export default async function JoueursPage({
           Filtrer
         </button>
       </form>
+      <p className="mt-2 font-body text-xs text-white/40">
+        Un seul champ suffit — laisse les autres vides pour chercher uniquement par pseudo, ville ou niveau.
+        {filtreActif && (
+          <>
+            {" "}
+            <Link href="/joueurs" className="text-lime hover:underline">
+              Réinitialiser les filtres
+            </Link>
+          </>
+        )}
+      </p>
 
       <div className="mt-14 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
         {joueurs && joueurs.length > 0 ? (
-          joueurs.map((j) => (
-            <div key={j.id} className="rounded-2xl border border-line bg-panel p-6 transition hover:border-orange">
+          joueurs.map((j, i) => (
+            <Reveal key={j.id} delay={Math.min(i, 8) * 60}>
+            <div className="gc-neon-card rounded-2xl border border-line bg-panel p-6 transition hover:-translate-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {j.photo_url ? (
@@ -63,8 +86,8 @@ export default async function JoueursPage({
                     <p className="font-body text-sm text-white/50">{j.ville}</p>
                   </div>
                 </div>
-                <p className="font-display text-2xl text-lime">{scores[j.id] ?? 0}</p>
               </div>
+              <StatBar label="Niveau global" value={scores[j.id] ?? 0} className="mt-4" />
               {j.niveau_declare && <p className="mt-3 font-body text-xs text-lime">{j.niveau_declare}</p>}
 
               <div className="mt-4 flex gap-2">
@@ -77,6 +100,7 @@ export default async function JoueursPage({
                 <JoueurCTA playerId={j.id} />
               </div>
             </div>
+            </Reveal>
           ))
         ) : (
           <p className="font-body text-white/50">

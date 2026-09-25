@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { getTrophiesForCompany, type Trophy } from "@/lib/trophies";
+import TrophyIcon from "@/components/Trophy";
 
 type Company = {
+  id: string;
   nom: string;
   secteur_activite: string | null;
   statut: string;
@@ -25,6 +28,7 @@ export default function EspaceEntreprisePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<Company | null>(null);
+  const [trophies, setTrophies] = useState<Trophy[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -43,10 +47,11 @@ export default function EspaceEntreprisePage() {
       if (rep) {
         const { data: companyData } = await supabase
           .from("companies")
-          .select("nom, secteur_activite, statut")
+          .select("id, nom, secteur_activite, statut")
           .eq("id", rep.company_id)
           .single();
         setCompany(companyData);
+        if (companyData) setTrophies(await getTrophiesForCompany(companyData.id));
       }
 
       setLoading(false);
@@ -81,6 +86,19 @@ export default function EspaceEntreprisePage() {
           </button>
         </div>
       </div>
+
+      {trophies.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {trophies.map((t) => (
+            <span
+              key={t.id}
+              className="rounded-full border border-orange/40 bg-orange/10 px-3 py-1 font-body text-xs text-orange"
+            >
+              <TrophyIcon /> {t.titre} — {new Date(t.date_obtention).toLocaleDateString("fr-FR")}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="mt-12 grid gap-6 sm:grid-cols-2">
         <div className="rounded-2xl border border-line bg-panel p-6">

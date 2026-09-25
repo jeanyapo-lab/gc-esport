@@ -10,6 +10,11 @@ export default function ParametresPage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [retourHref, setRetourHref] = useState("/");
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [nom, setNom] = useState("");
+  const [nomMsg, setNomMsg] = useState<string | null>(null);
+  const [nomSaving, setNomSaving] = useState(false);
 
   const [newEmail, setNewEmail] = useState("");
   const [emailMsg, setEmailMsg] = useState<string | null>(null);
@@ -29,10 +34,11 @@ export default function ParametresPage() {
         return;
       }
       setEmail(sessionData.session.user.email ?? "");
+      setUserId(sessionData.session.user.id);
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, nom")
         .eq("id", sessionData.session.user.id)
         .single();
 
@@ -40,11 +46,26 @@ export default function ParametresPage() {
       if (profile?.role && adminRoles.includes(profile.role)) setRetourHref("/admin");
       else if (profile?.role === "entreprise") setRetourHref("/espace-entreprise");
       else if (profile?.role === "joueur") setRetourHref("/espace-joueur");
+      setNom(profile?.nom ?? "");
 
       setLoading(false);
     }
     load();
   }, [router]);
+
+  async function handleUpdateNom(e: React.FormEvent) {
+    e.preventDefault();
+    if (!userId) return;
+    setNomMsg(null);
+    setNomSaving(true);
+    const { error } = await supabase.from("profiles").update({ nom: nom.trim() || null }).eq("id", userId);
+    setNomSaving(false);
+    if (error) {
+      setNomMsg("Erreur : " + error.message);
+    } else {
+      setNomMsg("Nom mis à jour.");
+    }
+  }
 
   async function handleUpdateEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -98,6 +119,31 @@ export default function ParametresPage() {
       <p className="mt-3 font-body text-sm text-white/60">Connecté avec {email}</p>
 
       <section className="mt-10 rounded-2xl border border-line bg-panel p-6">
+        <p className="font-display text-lg text-lime">Nom affiché</p>
+        <p className="mt-2 font-body text-xs text-white/50">
+          Ce nom apparaît dans les historiques et journaux (audit, statuts, évaluations...) à côté de chaque action
+          que tu effectues, pour qu'on sache toujours qui a fait quoi.
+        </p>
+        <form onSubmit={handleUpdateNom} className="mt-4 space-y-4">
+          <input
+            type="text"
+            placeholder="Ton nom (ex: Jean-Marc Yapo)"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            className="input"
+          />
+          {nomMsg && <p className="font-body text-sm text-lime">{nomMsg}</p>}
+          <button
+            type="submit"
+            disabled={nomSaving}
+            className="rounded-full bg-orange px-6 py-3 font-body text-sm font-semibold text-ink hover:bg-lime disabled:opacity-50"
+          >
+            {nomSaving ? "Enregistrement…" : "Enregistrer le nom"}
+          </button>
+        </form>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-line bg-panel p-6">
         <p className="font-display text-lg text-lime">Changer d'adresse e-mail</p>
         <form onSubmit={handleUpdateEmail} className="mt-4 space-y-4">
           <input

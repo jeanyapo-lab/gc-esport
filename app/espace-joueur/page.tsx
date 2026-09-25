@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummary, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
 import PlayerCard from "@/components/PlayerCard";
 import { notify, getAdminUserIds } from "@/lib/notify";
+import { getTrophiesForPlayer, type Trophy } from "@/lib/trophies";
+import TrophyIcon from "@/components/Trophy";
 
 type PlayerProfile = {
   id: string;
@@ -45,6 +47,7 @@ export default function EspaceJoueurPage() {
   const [respondedIds, setRespondedIds] = useState<string[]>([]);
   const [reponseDraft, setReponseDraft] = useState<Record<string, string>>({});
   const [sendingReponse, setSendingReponse] = useState<string | null>(null);
+  const [trophies, setTrophies] = useState<Trophy[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -67,6 +70,7 @@ export default function EspaceJoueurPage() {
         setStats(statsData);
         const cardStatsData = await getPlayerCardStats(data.id);
         setCardStats(cardStatsData);
+        setTrophies(await getTrophiesForPlayer(data.id));
 
         const { data: terminationsData } = await supabase
           .from("contract_terminations")
@@ -146,6 +150,19 @@ export default function EspaceJoueurPage() {
           </button>
         </div>
       </div>
+
+      {trophies.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {trophies.map((t) => (
+            <span
+              key={t.id}
+              className="rounded-full border border-orange/40 bg-orange/10 px-3 py-1 font-body text-xs text-orange"
+            >
+              <TrophyIcon /> {t.titre} — {new Date(t.date_obtention).toLocaleDateString("fr-FR")}
+            </span>
+          ))}
+        </div>
+      )}
 
       {terminations.length > 0 && (
         <div className="mt-8 space-y-4">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { generateBracket, validateBracketMatch, type BracketMatch } from "@/lib/bracket";
+import { generateBracket, validateBracketMatch, reassignBracketTeam, resetBracketMatch, type BracketMatch } from "@/lib/bracket";
 
 type Edition = { id: string; nom: string; competition_id: string };
 type Competition = { id: string; nom: string; format: string };
@@ -23,6 +23,7 @@ export default function AdminBracketPage() {
   const [generating, setGenerating] = useState(false);
   const [scoreEdits, setScoreEdits] = useState<Record<string, { a: string; b: string }>>({});
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -114,6 +115,25 @@ export default function AdminBracketPage() {
     await loadEditionData();
   }
 
+  async function handleReassign(matchId: string, slot: "a" | "b", teamId: string) {
+    const { error } = await reassignBracketTeam(matchId, slot, teamId || null);
+    if (error) {
+      alert("Erreur : " + error);
+      return;
+    }
+    await loadEditionData();
+  }
+
+  async function handleReset(match: BracketMatch) {
+    if (!confirm("Annuler le résultat de ce match pour le corriger ? Le vainqueur sera retiré du tour suivant si celui-ci n'est pas encore validé.")) return;
+    const { error } = await resetBracketMatch(match, editionId);
+    if (error) {
+      alert(error);
+      return;
+    }
+    await loadEditionData();
+  }
+
   function teamNom(id: string | null) {
     if (!id) return "—";
     return teams.find((t) => t.id === id)?.nom ?? "Équipe";
@@ -190,26 +210,57 @@ export default function AdminBracketPage() {
                     .filter((m) => m.tour === tour)
                     .map((m) => (
                       <div key={m.id} className="rounded-2xl border border-line bg-panel p-4">
-                        <div className="space-y-2">
-                          <div
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${
-                              m.vainqueur_team_id === m.team_a_id ? "bg-lime/10 text-lime" : "text-white/70"
-                            }`}
-                          >
-                            <span>{teamNom(m.team_a_id)}</span>
-                            {m.valide && <span>{m.score_a}</span>}
+                        {editingMatchId === m.id ? (
+                          <div className="space-y-2">
+                            <select
+                              defaultValue={m.team_a_id ?? ""}
+                              onChange={(e) => handleReassign(m.id, "a", e.target.value)}
+                              className="input py-1.5 text-xs"
+                            >
+                              <option value="">— Vide —</option>
+                              {teams.map((t) => (
+                                <option key={t.id} value={t.id}>{t.nom}</option>
+                              ))}
+                            </select>
+                            <select
+                              defaultValue={m.team_b_id ?? ""}
+                              onChange={(e) => handleReassign(m.id, "b", e.target.value)}
+                              className="input py-1.5 text-xs"
+                            >
+                              <option value="">— Vide —</option>
+                              {teams.map((t) => (
+                                <option key={t.id} value={t.id}>{t.nom}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => setEditingMatchId(null)}
+                              className="w-full rounded-full border border-white/20 px-3 py-1 font-body text-xs text-white/60"
+                            >
+                              Terminé
+                            </button>
                           </div>
-                          <div
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${
-                              m.vainqueur_team_id === m.team_b_id ? "bg-lime/10 text-lime" : "text-white/70"
-                            }`}
-                          >
-                            <span>{teamNom(m.team_b_id)}</span>
-                            {m.valide && <span>{m.score_b}</span>}
+                        ) : (
+                          <div className="space-y-2">
+                            <div
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${
+                                m.vainqueur_team_id === m.team_a_id ? "bg-lime/10 text-lime" : "text-white/70"
+                              }`}
+                            >
+                              <span>{teamNom(m.team_a_id)}</span>
+                              {m.valide && <span>{m.score_a}</span>}
+                            </div>
+                            <div
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 font-body text-sm ${
+                                m.vainqueur_team_id === m.team_b_id ? "bg-lime/10 text-lime" : "text-white/70"
+                              }`}
+                            >
+                              <span>{teamNom(m.team_b_id)}</span>
+                              {m.valide && <span>{m.score_b}</span>}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        {!m.valide && m.team_a_id && m.team_b_id && (
+                        {!m.valide && m.team_a_id && m.team_b_id && editingMatchId !== m.id && (
                           <div className="mt-3 flex items-center gap-2">
                             <input
                               type="number"
@@ -236,9 +287,28 @@ export default function AdminBracketPage() {
                             </button>
                           </div>
                         )}
-                        {!m.team_a_id || !m.team_b_id ? (
+                        {(!m.team_a_id || !m.team_b_id) && editingMatchId !== m.id ? (
                           <p className="mt-2 font-body text-xs text-white/30">En attente du tour précédent</p>
                         ) : null}
+
+                        {editingMatchId !== m.id && (
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              onClick={() => setEditingMatchId(m.id)}
+                              className="flex-1 rounded-full border border-white/20 px-3 py-1 font-body text-[11px] text-white/50 hover:border-white/50"
+                            >
+                              Réajuster les équipes
+                            </button>
+                            {m.valide && (
+                              <button
+                                onClick={() => handleReset(m)}
+                                className="flex-1 rounded-full border border-white/20 px-3 py-1 font-body text-[11px] text-white/50 hover:border-orange hover:text-orange"
+                              >
+                                Annuler le résultat
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>

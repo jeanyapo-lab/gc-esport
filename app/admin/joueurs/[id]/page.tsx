@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getPlayerStatsSummary, getPlayerCardStats, type StatsSummary, type CardStats } from "@/lib/playerStats";
 import PlayerCard from "@/components/PlayerCard";
+import { resolveActorNames } from "@/lib/actors";
 
 type Player = {
   id: string;
@@ -21,6 +22,7 @@ type Player = {
   comportement_signale: boolean;
   comportement_motif: string | null;
   comportement_date: string | null;
+  comportement_par: string | null;
 };
 type Evaluation = {
   id: string;
@@ -32,6 +34,15 @@ type Evaluation = {
   adaptation: number | null;
   gestion_pression: number | null;
   observations: string | null;
+  created_at: string;
+  evalue_par: string | null;
+};
+type StatusChange = {
+  id: string;
+  ancien_statut: string | null;
+  nouveau_statut: string;
+  motif: string | null;
+  change_par: string | null;
   created_at: string;
 };
 type Engagement = { id: string; type_engagement: string; statut: string };
@@ -61,9 +72,11 @@ export default function AdminJoueurDetailPage() {
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [cardStats, setCardStats] = useState<CardStats | null>(null);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [statusHistory, setStatusHistory] = useState<StatusChange[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [draftPicks, setDraftPicks] = useState<DraftPick[]>([]);
   const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
+  const [actorNames, setActorNames] = useState<Record<string, string>>({});
 
   const [precisionPasses, setPrecisionPasses] = useState("");
   const [tirsCadres, setTirsCadres] = useState("");
@@ -104,7 +117,7 @@ export default function AdminJoueurDetailPage() {
     const { data: playerData } = await supabase
       .from("player_profiles")
       .select(
-        "id, pseudo, nom, prenom, ville, date_naissance, niveau_declare, statut, photo_url, profil_public, comportement_signale, comportement_motif, comportement_date"
+        "id, pseudo, nom, prenom, ville, date_naissance, niveau_declare, statut, photo_url, profil_public, comportement_signale, comportement_motif, comportement_date, comportement_par"
       )
       .eq("id", playerId)
       .single();
@@ -118,11 +131,26 @@ export default function AdminJoueurDetailPage() {
     const { data: evalData } = await supabase
       .from("evaluations")
       .select(
-        "id, precision_passes, tirs_cadres, tirs_tentes, dribbles_reussis_pct, passes_cles, adaptation, gestion_pression, observations, created_at"
+        "id, precision_passes, tirs_cadres, tirs_tentes, dribbles_reussis_pct, passes_cles, adaptation, gestion_pression, observations, created_at, evalue_par"
       )
       .eq("player_id", playerId)
       .order("created_at", { ascending: false });
     setEvaluations(evalData ?? []);
+
+    const { data: statusHistData } = await supabase
+      .from("player_status_history")
+      .select("id, ancien_statut, nouveau_statut, motif, change_par, created_at")
+      .eq("player_id", playerId)
+      .order("created_at", { ascending: false });
+    setStatusHistory(statusHistData ?? []);
+
+    setActorNames(
+      await resolveActorNames([
+        ...(evalData ?? []).map((e) => e.evalue_par),
+        ...(statusHistData ?? []).map((s) => s.change_par),
+        playerData?.comportement_par,
+      ])
+    );
 
     const { data: engData } = await supabase
       .from("engagements")
@@ -328,6 +356,26 @@ export default function AdminJoueurDetailPage() {
                   Adaptation {ev.adaptation} · Pression {ev.gestion_pression}
                 </p>
                 {ev.observations && <p className="mt-1 font-body text-xs text-white/70">{ev.observations}</p>}
+                <p className="mt-1 font-body text-xs text-lime">
+                  Par {ev.evalue_par ? actorNames[ev.evalue_par] ?? "…" : "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {statusHistory.length > 0 && (
+          <div className="mt-6 space-y-2 border-t border-line pt-6">
+            <p className="font-body text-xs uppercase tracking-wide text-white/40">Historique du statut</p>
+            {statusHistory.map((s) => (
+              <div key={s.id} className="rounded-lg border border-line px-4 py-3">
+                <p className="font-body text-xs text-white/70">
+                  {statutLabel[s.ancien_statut ?? ""] ?? s.ancien_statut ?? "—"} → {statutLabel[s.nouveau_statut] ?? s.nouveau_statut}
+                </p>
+                <p className="mt-1 font-body text-xs text-white/40">
+                  {new Date(s.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })} — par{" "}
+                  {s.change_par ? actorNames[s.change_par] ?? "…" : "—"}
+                </p>
               </div>
             ))}
           </div>
@@ -341,6 +389,9 @@ export default function AdminJoueurDetailPage() {
           <div className="mt-4 rounded-lg border border-orange/40 bg-orange/10 p-4">
             <p className="font-body text-sm text-orange">⚠ Signalé le {player.comportement_date ? new Date(player.comportement_date).toLocaleDateString("fr-FR") : ""}</p>
             <p className="mt-2 font-body text-sm text-white/70">{player.comportement_motif}</p>
+            <p className="mt-2 font-body text-xs text-white/50">
+              Par {player.comportement_par ? actorNames[player.comportement_par] ?? "…" : "—"}
+            </p>
             <button onClick={handleLeverSignalement} className="mt-3 rounded-full border border-white/20 px-4 py-2 font-body text-xs text-white/70">
               Lever le signalement
             </button>

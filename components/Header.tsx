@@ -16,6 +16,7 @@ const mainLinks = [
 
 const moreLinks = [
   { href: "/classements", label: "Classements" },
+  { href: "/palmares", label: "Palmarès" },
   { href: "/calendrier", label: "Calendrier" },
   { href: "/equipes", label: "Équipes" },
   { href: "/actualites", label: "Actualités" },

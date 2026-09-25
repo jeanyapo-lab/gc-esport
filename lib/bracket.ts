@@ -116,3 +116,56 @@ export async function validateBracketMatch(match: BracketMatch, editionId: strin
     await advanceWinner(editionId, match.tour, match.position, winnerTeamId);
   }
 }
+
+// Réajustement manuel : l'admin peut réaffecter directement l'équipe
+// d'un côté du match (utile pour corriger une erreur de tirage, ou
+// construire le tableau à la main plutôt que de le tirer au sort).
+export async function reassignBracketTeam(
+  matchId: string,
+  slot: "a" | "b",
+  teamId: string | null
+): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from("bracket_matches")
+    .update(slot === "a" ? { team_a_id: teamId } : { team_b_id: teamId })
+    .eq("id", matchId);
+  if (error) return { error: error.message };
+  return {};
+}
+
+// Annule la validation d'un match déjà joué (score + vainqueur) pour
+// pouvoir le corriger. Si le vainqueur avait déjà été propagé au tour
+// suivant et que CE match suivant n'est pas encore validé, l'emplacement
+// concerné est aussi vidé pour rester cohérent ; s'il est déjà validé,
+// l'opération est refusée pour ne pas casser un résultat en aval.
+export async function resetBracketMatch(match: BracketMatch, editionId: string): Promise<{ error?: string }> {
+  const nextTour = match.tour + 1;
+  const nextPosition = Math.floor(match.position / 2);
+  const slotIsA = match.position % 2 === 0;
+
+  const { data: nextMatch } = await supabase
+    .from("bracket_matches")
+    .select("id, valide")
+    .eq("edition_id", editionId)
+    .eq("tour", nextTour)
+    .eq("position", nextPosition)
+    .maybeSingle();
+
+  if (nextMatch?.valide) {
+    return { error: "Le tour suivant a déjà été validé pour ce match — annule d'abord le résultat du tour suivant." };
+  }
+
+  if (nextMatch) {
+    await supabase
+      .from("bracket_matches")
+      .update(slotIsA ? { team_a_id: null } : { team_b_id: null })
+      .eq("id", nextMatch.id);
+  }
+
+  const { error } = await supabase
+    .from("bracket_matches")
+    .update({ score_a: null, score_b: null, valide: false, vainqueur_team_id: null })
+    .eq("id", match.id);
+  if (error) return { error: error.message };
+  return {};
+}

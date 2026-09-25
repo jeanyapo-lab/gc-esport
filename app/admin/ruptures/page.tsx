@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { notify, getUserIdFromPlayerId, getUserIdsFromCompanyId } from "@/lib/notify";
 import { logAction } from "@/lib/auditLog";
+import { resolveActorNames } from "@/lib/actors";
 
 type Termination = {
   id: string;
@@ -17,6 +18,7 @@ type Termination = {
   justificatif_url: string | null;
   statut: string;
   created_at: string;
+  traite_par: string | null;
 };
 type Response = { id: string; termination_id: string; reponse: string; created_at: string };
 
@@ -36,6 +38,7 @@ export default function AdminRupturesPage() {
   const [responsesByTermination, setResponsesByTermination] = useState<Record<string, Response[]>>({});
   const [playersMap, setPlayersMap] = useState<Record<string, string>>({});
   const [companiesMap, setCompaniesMap] = useState<Record<string, string>>({});
+  const [actorNames, setActorNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function init() {
@@ -62,9 +65,10 @@ export default function AdminRupturesPage() {
   async function loadAll() {
     const { data: terminationsData } = await supabase
       .from("contract_terminations")
-      .select("id, team_id, player_id, company_id, edition_id, motif, justificatif_url, statut, created_at")
+      .select("id, team_id, player_id, company_id, edition_id, motif, justificatif_url, statut, created_at, traite_par")
       .order("created_at", { ascending: false });
     setTerminations(terminationsData ?? []);
+    setActorNames(await resolveActorNames((terminationsData ?? []).map((t) => t.traite_par)));
 
     const ids = (terminationsData ?? []).map((t) => t.id);
     if (ids.length > 0) {
@@ -223,7 +227,13 @@ export default function AdminRupturesPage() {
             {traitees.map((t) => (
               <div key={t.id} className="flex items-center justify-between rounded-lg border border-line px-4 py-3 font-body text-sm text-white/60">
                 <span>{companiesMap[t.company_id] ?? "—"} → {playersMap[t.player_id] ?? "—"}</span>
-                <span className="text-xs">{statutLabel[t.statut] ?? t.statut}</span>
+                <span className="text-right text-xs">
+                  {statutLabel[t.statut] ?? t.statut}
+                  <br />
+                  <span className="text-white/40">
+                    par {t.traite_par ? actorNames[t.traite_par] ?? "…" : "—"}
+                  </span>
+                </span>
               </div>
             ))}
           </div>

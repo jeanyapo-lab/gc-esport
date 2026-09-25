@@ -21,3 +21,177 @@ body {
     @apply w-full rounded-lg border border-line bg-panel px-4 py-3 font-body text-white outline-none transition focus:border-orange;
   }
 }
+
+/* ============================================================
+   Animations générales du site (fun & cool, sans toucher aux
+   animations déjà en place sur les boutons)
+   ============================================================ */
+
+@keyframes gc-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gc-page-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gc-trophy-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 14px 2px rgba(255, 85, 0, 0.45);
+  }
+}
+
+@keyframes gc-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Élément prêt à apparaître au défilement (voir components/Reveal.tsx) */
+.gc-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.gc-reveal.gc-reveal-visible {
+  animation: gc-fade-in-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Contenu de page : petite entrée en fondu à chaque navigation */
+.gc-page-enter {
+  animation: gc-page-fade 0.45s ease-out both;
+}
+
+/* Badges trophée : légère pulsation lumineuse + flottement au survol */
+.gc-trophy {
+  display: inline-flex;
+  animation: gc-trophy-glow 2.6s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+.gc-trophy:hover {
+  transform: translateY(-2px) scale(1.05);
+}
+
+/* Le bas de la photo du joueur en hero se fond dans le fond de la page
+   au lieu de s'arrêter net (bord visible). */
+.gc-hero-fade {
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 96%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 96%);
+}
+
+/* ------------------------------------------------------------
+   Look "gaming" : bordures néon, glitch, jauges, trophées qui
+   "pop" comme un déblocage d'achievement.
+   ------------------------------------------------------------ */
+
+/* Cartes à bordure néon — s'illumine au survol comme un HUD */
+.gc-neon-card {
+  position: relative;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.gc-neon-card:hover {
+  border-color: rgba(255, 85, 0, 0.7);
+  box-shadow: 0 0 0 1px rgba(255, 85, 0, 0.35), 0 0 24px 2px rgba(255, 85, 0, 0.25),
+    0 0 40px 6px rgba(163, 255, 18, 0.08);
+}
+
+/* Glitch ambiant sur les gros titres : bref décalage RVB, répété
+   discrètement toutes les quelques secondes (pas en continu). */
+@keyframes gc-glitch-1 {
+  0%, 96%, 100% { clip-path: inset(0 0 0 0); transform: translate(0, 0); opacity: 0; }
+  96.5% { clip-path: inset(20% 0 55% 0); transform: translate(-2px, 0); opacity: 0.8; }
+  97.5% { clip-path: inset(60% 0 10% 0); transform: translate(2px, 0); opacity: 0.8; }
+  98.5% { clip-path: inset(10% 0 70% 0); transform: translate(-1px, 0); opacity: 0.6; }
+}
+@keyframes gc-glitch-2 {
+  0%, 96%, 100% { clip-path: inset(0 0 0 0); transform: translate(0, 0); opacity: 0; }
+  96.5% { clip-path: inset(70% 0 5% 0); transform: translate(2px, 0); opacity: 0.8; }
+  97.5% { clip-path: inset(5% 0 80% 0); transform: translate(-2px, 0); opacity: 0.8; }
+  98.5% { clip-path: inset(45% 0 35% 0); transform: translate(1px, 0); opacity: 0.6; }
+}
+.gc-glitch {
+  position: relative;
+  display: inline-block;
+}
+.gc-glitch::before,
+.gc-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: inherit;
+}
+.gc-glitch::before {
+  color: #A3FF12;
+  animation: gc-glitch-1 6s infinite linear;
+}
+.gc-glitch::after {
+  color: #FF5500;
+  animation: gc-glitch-2 6s infinite linear;
+}
+
+/* Jauges de statistiques façon jeu vidéo */
+.gc-statbar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.gc-statbar-fill {
+  height: 100%;
+  border-radius: 999px;
+  width: 0%;
+  background: linear-gradient(90deg, #FF5500, #A3FF12);
+  box-shadow: 0 0 8px 1px rgba(255, 85, 0, 0.5);
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Trophée : "pop" façon déblocage d'achievement + lueur continue */
+@keyframes gc-trophy-pop {
+  0% { transform: scale(0.2) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.25) rotate(6deg); opacity: 1; }
+  80% { transform: scale(0.95) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.gc-trophy-pop {
+  animation: gc-trophy-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-reveal,
+  .gc-reveal.gc-reveal-visible,
+  .gc-page-enter,
+  .gc-trophy,
+  .gc-glitch::before,
+  .gc-glitch::after,
+  .gc-trophy-pop,
+  .gc-statbar-fill {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

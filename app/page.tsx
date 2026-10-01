@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import Reveal from "@/components/Reveal";
 import AnimatedCounter from "@/components/AnimatedCounter";
 import GlitchTitle from "@/components/GlitchTitle";
+import HeroAnimation from "@/components/HeroAnimation";
 
 export const revalidate = 60;
 
@@ -25,9 +26,9 @@ export default async function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pb-0 pt-24 md:pb-0 md:pt-32">
-        <div className="grid items-end gap-10 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="pb-20 md:pb-28">
+      <section className="mx-auto max-w-6xl px-6 pb-20 pt-24 md:pt-32">
+        <div className="grid items-center gap-10 md:grid-cols-[1.1fr_0.9fr]">
+          <div>
             <p className="animate-[gc-fade-in-up_0.7s_ease-out_both] font-body text-sm uppercase tracking-[0.2em] text-lime">
               Abidjan · Côte d'Ivoire
             </p>
@@ -56,14 +57,10 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Joueur détouré, aligné à droite — masqué sur mobile pour ne pas
-              écraser le texte sur petit écran. */}
-          <div className="relative hidden justify-self-end md:flex">
-            <img
-              src="/images/hero-joueur.webp"
-              alt="Joueur GC ESPORT avec casque gaming, maillot Abidjan Ascendants"
-              className="gc-hero-fade relative max-h-[560px] w-auto animate-[gc-fade-in-up_1s_ease-out_0.2s_both] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
-            />
+          {/* Animation en boucle : main qui joue → score → coupe soulevée.
+              Masquée sur mobile pour ne pas écraser le texte. */}
+          <div className="hidden animate-[gc-fade-in-up_1s_ease-out_0.2s_both] md:flex md:justify-center">
+            <HeroAnimation />
           </div>
         </div>
       </section>
